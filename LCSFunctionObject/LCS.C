@@ -45,11 +45,25 @@ Foam::LCS::LCS
 )
 :
     name_(name),
-    obr_(obr),
-    wordData_(dict.lookupOrDefault<word>("wordData", "defaultWord")),
-    scalarData_(readScalar(dict.lookup("scalarData"))),
-    labelData_(readLabel(dict.lookup("labelData")))
+    obr_(obr)
 {
+    // Check if the available mesh is an fvMesh, otherwise deactivate
+    if (!isA<fvMesh>(obr_))
+    {
+        active_ = false;
+        WarningIn
+        (
+            "LCS::LCS"
+            "("
+                "const word&, "
+                "const objectRegistry&, "
+                "const dictionary&, "
+                "const bool"
+            ")"
+        )   << "No fvMesh available, deactivating " << name_ << nl
+            << endl;
+    }
+
     read(dict);
 }
 
@@ -64,50 +78,61 @@ Foam::LCS::~LCS()
 
 bool Foam::LCS::start()
 {
-    // mpi communicator
-    MPI_Comm comm = MPI_COMM_WORLD;
+    if (active_)
+    {
+        // mpi communicator
+        MPI_Comm comm = MPI_COMM_WORLD;
 
-    // number of grid points for THIS partition in x=i, y=j and z=k direction
-    getNumberOfCellsInDirection();
+        // number of grid points for THIS partition in x=i, y=j and z=k direction
+        // !! for now user has to provide information in dict !!
+        // getNumberOfCellsInDirection();
 
-    // Global offset for these grid points
-    int offset[3]= {0,0,0};
+        // Global offset for these grid points
+        // parallel computation not supported yet
+        int offset[3]= {0,0,0};
 
-    // Allocate space for data
-    x_ = (lcsdata_t*)malloc(n_[0]*n_[1]*n_[2]*sizeof(lcsdata_t));
-    y_ = (lcsdata_t*)malloc(n_[0]*n_[1]*n_[2]*sizeof(lcsdata_t));
-    z_ = (lcsdata_t*)malloc(n_[0]*n_[1]*n_[2]*sizeof(lcsdata_t));
-    u_ = (lcsdata_t*)malloc(n_[0]*n_[1]*n_[2]*sizeof(lcsdata_t));
-    v_ = (lcsdata_t*)malloc(n_[0]*n_[1]*n_[2]*sizeof(lcsdata_t));
-    w_ = (lcsdata_t*)malloc(n_[0]*n_[1]*n_[2]*sizeof(lcsdata_t));
-    flag_ = (int*)malloc(n_[0]*n_[1]*n_[2]*sizeof(int));
+        // Allocate space for data used by lcs library
+        x_ = static_cast<lcsdata_t*>(malloc(n_[0]*n_[1]*n_[2]*sizeof(lcsdata_t)));
+        y_ = static_cast<lcsdata_t*>(malloc(n_[0]*n_[1]*n_[2]*sizeof(lcsdata_t)));
+        z_ = static_cast<lcsdata_t*>(malloc(n_[0]*n_[1]*n_[2]*sizeof(lcsdata_t)));
+        u_ = static_cast<lcsdata_t*>(malloc(n_[0]*n_[1]*n_[2]*sizeof(lcsdata_t)));
+        v_ = static_cast<lcsdata_t*>(malloc(n_[0]*n_[1]*n_[2]*sizeof(lcsdata_t)));
+        w_ = static_cast<lcsdata_t*>(malloc(n_[0]*n_[1]*n_[2]*sizeof(lcsdata_t)));
+        flag_ = static_cast<int*>(malloc(n_[0]*n_[1]*n_[2]*sizeof(int)));
 
-    // convert OpenFoam mesh to x,y,z arays
-    getCellCenterCoords();
+        // convert OpenFoam mesh cell centers to x,y,z arays 
+        // and set boundary type flags for each cell center
+        getCellCenterCoords();
 
-    // Initializes the communications and data storage for OpenFoam data input
-    cfd2lcs_init_c(comm,n_,offset,x_,y_,z_,flag_);
+        // Initializes the communications and data storage for OpenFoam data input
+        cfd2lcs_init_c(comm,&n_[0],offset,x_,y_,z_,flag_);
 
-    // Initialize LCS diagnostics
-    initializeLCSDiagnostics();
+        // Initialize LCS diagnostics
+        initializeLCSDiagnostics();
 
-    // Set CFD2LCS options/parameters
-    setLCSoptions();
+        // Set CFD2LCS options/parameters
+        setLCSoptions();
+    }
 
     return true;
 }
 
 void Foam::LCS::read(const dictionary& dict)
 {
-    dict.readIfPresent("wordData", wordData_);
-    dict.lookup("scalarData") >> scalarData_;
-    dict.lookup("labelData") >> labelData_;
+    if (active_)
+    {
+        n_ = dict.lookup("n");
+        uName_ = dict.lookupOrDefault<word>("velocityName", "U");
+    }
 }
 
 
 void Foam::LCS::execute()
-{
-    // Do nothing - only valid on write
+{   
+    if (active_)
+    {
+        // Do nothing - only valid on write
+    }
 }
 
 
@@ -130,18 +155,76 @@ void Foam::LCS::write()
 
 void Foam::LCS::getCellCenterCoords()
 {
-    //TODO
-    x_[0]=1.f;
-    y_[0]=1.f;
-    z_[0]=1.f;
+    const fvMesh& mesh = refCast<const fvMesh>(obr_);
+
+    // Cell centroid coordinates
+    const vectorField& centres = mesh.C().internalField();
+    // Loop over cell centres
+    forAll (centres , celli)
+    {
+        x_[celli] = mesh.C()[celli].component(0);
+        y_[celli] = mesh.C()[celli].component(1);
+        z_[celli] = mesh.C()[celli].component(2);
+        // set all cells als internal
+        flag_[celli] = LCS_INTERNAL;
+    }
+
+    // Loop over all boundary patches
+    forAll (mesh.boundaryMesh(), patchi)
+    {
+        // Current poly patch
+        const polyPatch& pp = mesh.boundaryMesh()[patchi];
+        const word& patchName = pp.name();
+
+        // Velocity field
+        const volVectorField& U = mesh.lookupObject<volVectorField>(uName_);
+        const fvPatchVectorField& U_p = U.boundaryField()[patchi];
+
+
+        // determine boundary type
+        label boundaryType = LCS_INTERNAL;
+        if (pp.type() == "wall")
+        {
+            if (U_p.type() == "slip")
+            {
+                boundaryType = LCS_SLIP;
+            }else
+            {
+                boundaryType = LCS_WALL;
+            }
+        }else if (pp.type() == "empty" || pp.type() == "symmetryPlane" || pp.type() == "wedge")
+        {
+            boundaryType = LCS_SLIP;
+        }else if (pp.type() == "cyclic" || pp.type() == "processor")
+        {
+            boundaryType = LCS_INTERNAL;
+        }
+        else
+        {
+            // TODO: Use U boundary Field to determine boundary field type or use regex for patchnames
+            if (patchName == "inlet" || patchName == "Inlet")
+            {
+                boundaryType = LCS_INFLOW;
+            }else if (patchName == "outlet" || patchName == "Outlet")
+            {
+                boundaryType = LCS_OUTFLOW;
+            }
+        }
+        
+        
+        // Loop over all faces of boundary patch
+        forAll(mesh.boundary()[patchi], facei)
+        {
+            // Boundary cell index
+            const label& bCell = mesh.boundary()[patchi].faceCells()[facei];
+            flag_[bCell] = boundaryType;
+        }
+    }
 }
 
 void Foam::LCS::getNumberOfCellsInDirection()
 {
-    //TODO
-    n_[0]=1;
-    n_[1]=1;
-    n_[2]=1;
+    // For now user has to provide information in dict
 }
 
 void Foam::LCS::initializeLCSDiagnostics()
@@ -156,16 +239,33 @@ void Foam::LCS::initializeLCSDiagnostics()
 void Foam::LCS::setLCSoptions()
 {
     //TODO
-    cfd2lcs_set_option_c("SYNCTIMER",LCS_FALSE);
-    cfd2lcs_set_option_c("DEBUG",LCS_FALSE);
-    cfd2lcs_set_option_c("WRITE_FLOWMAP",LCS_FALSE);
-    cfd2lcs_set_option_c("WRITE_BCFLAG",LCS_FALSE);
-    cfd2lcs_set_option_c("INCOMPRESSIBLE",LCS_FALSE);
-    cfd2lcs_set_option_c("AUX_GRID",LCS_FALSE);
-    cfd2lcs_set_option_c("INTEGRATOR",RK3);
-    cfd2lcs_set_option_c("INTERPOLATOR",LINEAR);
+    char option1[] = "SYNCTIMER";
+    cfd2lcs_set_option_c(option1,LCS_FALSE);
+
+    char option2[] = "DEBUG";
+    cfd2lcs_set_option_c(option2,LCS_FALSE);
+
+    char option3[] = "WRITE_FLOWMAP";
+    cfd2lcs_set_option_c(option3,LCS_FALSE);
+ 
+    char option4[] = "WRITE_BCFLAG";
+    cfd2lcs_set_option_c(option4,LCS_FALSE);
+
+    char option5[] = "INCOMPRESSIBLE";
+    cfd2lcs_set_option_c(option5,LCS_FALSE);
+
+    char option6[] = "AUX_GRID";
+    cfd2lcs_set_option_c(option6,LCS_FALSE);
+
+    char option7[] = "INTEGRATOR";
+    cfd2lcs_set_option_c(option7,RK3);
+
+    char option8[] = "INTERPOLATOR";
+    cfd2lcs_set_option_c(option8,LINEAR);
+
+    char option9[] = "CFL";
     lcsdata_t CFL = 0.9;
-    cfd2lcs_set_param_c("CFL", CFL);
+    cfd2lcs_set_param_c(option9, CFL);
 }
 
 // ************************************************************************* //

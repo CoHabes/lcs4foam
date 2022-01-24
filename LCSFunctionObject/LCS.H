@@ -95,32 +95,29 @@ class LCS
         //- Refererence to Db
         const objectRegistry& obr_;
 
-        //- Number of grid points
-        int n_[3];
+        //- On/off switch
+        bool active_;
+
+        //- Name of velocity field, default is "U"
+        word uName_;
 
         //- Resolution for LCS computation
-        int res_;
+        label res_;
 
         //- Grid coordinates and velocities
         lcsdata_t *x_, *y_, *z_, *u_, *v_, *w_;
 
         //- Boundary condition flag
-        int *flag_;
+        label *flag_;
 
         //- LCS diagnostics ids
-        int id_fwd = -1;
-        int id_bwd = -1;
+        label id_fwd = -1;
+        label id_bwd = -1;
 
         // Read from dictionary
 
-            //- word
-            word wordData_;
-
-            //- scalar
-            scalar scalarData_;
-
-            //- label
-            label labelData_;
+            //- Number of grid points
+            labelList n_;
 
 
     // Private Member Functions
