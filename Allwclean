@@ -1,0 +1,8 @@
+#!/bin/sh
+set -x
+
+wcleanLnIncludeAll
+rmdepall
+rmoall
+
+wclean libso LCSfunctionObject

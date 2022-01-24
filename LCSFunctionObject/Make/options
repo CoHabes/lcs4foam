@@ -1,0 +1,14 @@
+include $(RULES)/mplib$(WM_MPLIB)
+
+EXE_INC = \
+    $(PFLAGS) $(PINC) \
+    -I./lnInclude \
+    -I$(LIB_SRC)/finiteVolume/lnInclude \
+    -I$(LIB_SRC)/meshTools/lnInclude 
+
+LIB_LIBS = \
+    -lfiniteVolume \
+    -lmeshTools \
+    -L$(PWD)/libcfd2lcs/lib -lcfd2lcs_sp \
+    -L$(OPENMPI_DIR)/lib -lmpi
+ 
