@@ -49,16 +49,53 @@ functions
     lagrangianCoherentStructures
     {
         type            LCS;
-
         // Where to load it from (if not already in solver)
         functionObjectLibs ("libLCSFunctionObject.so");
 
-        // numer of cells in mesh in x, y and z direction (must correspond with used mesh)
+        // Numer of cells in mesh in x, y and z direction (must correspond with used mesh)
         n (100 100 1);
 
-        // velocity field name
+        // Velocity field name
         velocityName "U";
 
+        // Start time of LCS diagnostic - (default: startTime of simulation)
+        lcsStartTime 0;
+
+        // End time of LCS diagnostic - (default: endTime of simulation)
+        lcsEndTime 0.5;
+
+        // LCS output interval in s
+        lcsWriteTimeIntervall 1;
+
+        // Switches for FTLE field evaluation 
+        // - Forward time (repelling) FTLE field - (default: true/on)
+        ftleFwd    on;
+        // - Backward time (attracting) FTLE field - (default: false/off)
+        ftleBkwd   off;
+
+        // Specifies addition or removal of grid points for the diagnostic calculation
+        // - 0 LCS diagnostic will be computed on same grid (is default)
+        // - 1, 2, ... Diagnostic will be computed on a grid with resolution times more grid points
+        // - -1, -2, ... Diagnostic will be computed on a grid with resolution times less grid points
+        resolution 0;
+
+        lcsCFL          0.5;
+
+        integrator      rk3;
+
+        interpolator    linear;
+        
+
+        // LCS Options
+        lcsOptions
+        {
+            synctimer       off;
+            debug           off;
+            writeFlowmap    off;
+            writeBCFlags    off;
+            incompressible  off;
+            auxGrid         off;
+        }
 }
 
 

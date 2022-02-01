@@ -62,6 +62,7 @@ SourceFiles
 
 #include "volFields.H"
 #include "runTimeSelectionTables.H"
+#include "Switch.H"
 #include "fvMesh.H"
 
 // include cfd2lcs functionalities
@@ -92,17 +93,17 @@ class LCS
         //- Name of this set of LCS
         word name_;
 
-        //- Refererence to Db
-        const objectRegistry& obr_;
+        //- Refererence to Db/mesh
+        const fvMesh& mesh_;
+
+        //- Refererence to controlDict
+        const dictionary& controlDict_;
 
         //- On/off switch
-        bool active_;
+        bool active_ = true;
 
-        //- Name of velocity field, default is "U"
-        word uName_;
-
-        //- Resolution for LCS computation
-        label res_;
+        //- Indicator for first execution of function object
+        bool firstExe_ = true;
 
         //- Grid coordinates and velocities
         lcsdata_t *x_, *y_, *z_, *u_, *v_, *w_;
@@ -111,17 +112,52 @@ class LCS
         label *flag_;
 
         //- LCS diagnostics ids
-        label id_fwd = -1;
-        label id_bwd = -1;
+        label id_fwd_ = -1;
+        label id_bkwd_ = -1;
 
         // Read from dictionary
 
             //- Number of grid points
             labelList n_;
 
+            //- Name of velocity field, default is "U"
+            word uName_;
+
+            //- Resolution for LCS computation
+            label res_;
+
+            //- Switches for forward time and backward time diagnostics
+            Switch ftleFwd_;
+            Switch ftleBkwd_;
+
+            //- LCS start time
+            scalar t0_;
+            //- LCS diagnostic run time
+            scalar T_;
+
+            //- LCS output time interval 
+            scalar H_;
+
+            //- LCS time integration scheme
+            label lcsIntegrator_;
+
+            //- LCS interpolation scheme
+            label lcsInterpolator_;
+
+            //- LCS CFL number 
+            scalar lcsCFL_;
+
+            //- LCS options
+            label optSynctimer_;
+            label optDebug_;
+            label optWriteFlowmap_;
+            label optWriteBCFalgs_;
+            label optIncompressible_;
+            label optAuxGrid_;
 
     // Private Member Functions
         void getCellCenterCoords();
+        void getVelocityField();
         void getNumberOfCellsInDirection();
         void initializeLCSDiagnostics();
         void setLCSoptions();

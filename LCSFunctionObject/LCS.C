@@ -25,6 +25,7 @@ License
 
 #include "LCS.H"
 #include "dictionary.H"
+#include "cfd2lcs_inc_sp.h"
 
 // * * * * * * * * * * * * * * Static Data Members * * * * * * * * * * * * * //
 
@@ -45,10 +46,11 @@ Foam::LCS::LCS
 )
 :
     name_(name),
-    obr_(obr)
+    mesh_(refCast<const fvMesh>(obr)),
+    controlDict_(obr.time().controlDict())
 {
     // Check if the available mesh is an fvMesh, otherwise deactivate
-    if (!isA<fvMesh>(obr_))
+    if (!isA<fvMesh>(mesh_))
     {
         active_ = false;
         WarningIn
@@ -78,6 +80,7 @@ Foam::LCS::~LCS()
 
 bool Foam::LCS::start()
 {
+    Info<< "Start initializing LCS diagnostics" << endl;
     if (active_)
     {
         // mpi communicator
@@ -114,70 +117,215 @@ bool Foam::LCS::start()
         setLCSoptions();
     }
 
+    Info<< "Finished initializing LCS diagnostics" << endl;
     return true;
 }
 
 void Foam::LCS::read(const dictionary& dict)
-{
+{   
+    Info<< "Start Reading LCS diagnostic settings" << endl;
     if (active_)
     {
         n_ = dict.lookup("n");
         uName_ = dict.lookupOrDefault<word>("velocityName", "U");
+        ftleFwd_ = dict.lookupOrDefault<Switch>("ftleFwd", true);
+        ftleBkwd_ = dict.lookupOrDefault<Switch>("ftleBkwd", false);
+
+        // check if any of the diagnostics should be executed
+        if(!ftleFwd_ & !ftleBkwd_){
+        active_ = false;
+        WarningIn
+        (
+            "LCS::read"
+            "("
+                "const dictionary& dict"
+            ")"
+        )   << "No FTLE evaluation activated, deactivating " << name_ << nl
+            << endl;
+        }
+
+        res_ = dict.lookupOrDefault<label>("resolution", 0);
+        scalar simulationStartTime = readScalar(controlDict_.lookup("startTime"));
+        t0_ = dict.lookupOrDefault<scalar>("lcsStartTime", simulationStartTime);
+        scalar simulationEndTime = readScalar(controlDict_.lookup("endTime"));
+        scalar lcsEndTime = dict.lookupOrDefault<scalar>("lcsEndTime", simulationEndTime);
+        T_ = lcsEndTime - t0_;
+
+        // determine default value for LCS output time interval 
+        scalar simulationWriteTimeInterval = 1.0f;
+        word writeControl = controlDict_.lookup("writeControl");
+        if(writeControl == "runTime" || writeControl == "adjustableRunTime" ){
+            simulationWriteTimeInterval = readScalar(controlDict_.lookup("writeInterval"));
+        }else if(writeControl == "timeStep"){
+            Switch adjustTimeStep = controlDict_.lookupOrDefault<Switch>("adjustTimeStep", false);
+            if(adjustTimeStep){
+                WarningIn
+                (
+                    "LCS::read"
+                    "("
+                        "const dictionary& dict"
+                    ")"
+                )   << "Adjustable simulation time steps with timeStep writeControl is not support with LCS diagnostics." << nl 
+                    << "If no lcsWriteInterval is provided lcsWriteTimeInterval is set to 1s"<< name_ << nl
+                    << endl;
+            }else{
+                scalar simulationWriteStepInterval = readScalar(controlDict_.lookup("writeInterval"));
+                scalar simulationDeltaT = readScalar(controlDict_.lookup("deltaT"));
+                simulationWriteTimeInterval = simulationDeltaT * simulationWriteStepInterval;
+            }
+        }else{
+            WarningIn
+            (
+                "LCS::read"
+                "("
+                    "const dictionary& dict"
+                ")"
+            )   << "cpuTime and clockTime writeControl is not support with LCS diagnostics." << nl 
+                << "If no lcsWriteInterval is provided lcsWriteTimeInterval is set to 1s"<< name_ << nl
+                << endl;
+        }
+        H_ = dict.lookupOrDefault<scalar>("lcsWriteTimeIntervall", simulationWriteTimeInterval);
+
+        // read integrator - Maybe better with selectionTables, but this works for now
+        std::map<std::string, int> lcsIntegratorMap { 
+            {"euler", EULER}, 
+            {"trapezodial", TRAPEZOIDAL}, 
+            {"rk2", RK2}, 
+            {"rk3", RK3}, 
+            {"rk4", RK4} 
+        };
+        word integrator = dict.lookup("integrator", "rk2");
+        auto searchIntegrator = lcsIntegratorMap.find(integrator);
+        if (searchIntegrator != lcsIntegratorMap.end()) {
+            lcsIntegrator_ = searchIntegrator->second;
+        } else {
+            WarningIn
+            (
+                "LCS::read"
+                "("
+                    "const dictionary& dict"
+                ")"
+            )   << "LCS integrator " << integrator << "is no valid integration scheme for lcs diagnostic" << nl 
+                << "valid types are: euler, trapezodial, rk2, rk3, rk4. " << nl 
+                << "Setting LCS integrator to rk2."<< name_ << nl
+                << endl;
+            lcsIntegrator_ = RK2;
+        }
+
+
+        // read interpolator - Maybe better with selectionTables, but this works for now
+        std::map<std::string, int> lcsInterpolatorMap { 
+            {"nearestNBR", NEAREST_NBR}, 
+            {"linear", LINEAR}, 
+            {"quadratic", QUADRATIC}, 
+            {"cubic", CUBIC}, 
+            {"tse", TSE}, 
+            {"tseLimit", TSE_LIMIT}
+            };
+        word interpolator = dict.lookupOrDefault<word>("interpolator", "linear");
+        auto searchInterpolator = lcsInterpolatorMap.find(interpolator);
+        if (searchInterpolator != lcsInterpolatorMap.end()) {
+            lcsInterpolator_ = searchInterpolator->second;
+        } else {
+            WarningIn
+            (
+                "LCS::read"
+                "("
+                    "const dictionary& dict"
+                ")"
+            )   << "LCS interpolator " << interpolator << "is no valid interpolation scheme for lcs diagnostic." << nl 
+                << "Valid types are: nearestNBR, linear, quadratic, cubic, tse, tseLimit. " << nl 
+                << "Setting LCS interpolator to linear."<< name_ << nl
+                << endl;
+            lcsInterpolator_ = LINEAR;
+        }
+
+        // read lcs CFl number
+        lcsCFL_ = dict.lookupOrDefault<scalar>("lcsCFL", 0.5f);
+        
+        // read lcs options
+        const dictionary& lcsOptionsDict = dict.subDict("lcsOptions");
+        Switch synctimer = lcsOptionsDict.lookupOrDefault<Switch>("synctimer", false);
+        optSynctimer_ = (synctimer) ? LCS_TRUE : LCS_FALSE;
+        Switch debug = lcsOptionsDict.lookupOrDefault<Switch>("debug", false);
+        optDebug_ = (debug) ? LCS_TRUE : LCS_FALSE;
+        Switch writeFlowmap = lcsOptionsDict.lookupOrDefault<Switch>("writeFlowmap", false);
+        optWriteFlowmap_ = (writeFlowmap) ? LCS_TRUE : LCS_FALSE;
+        Switch writeBCFalgs = lcsOptionsDict.lookupOrDefault<Switch>("writeBCFlags", false);
+        optWriteBCFalgs_ = (writeBCFalgs) ? LCS_TRUE : LCS_FALSE;
+        Switch incompressible = lcsOptionsDict.lookupOrDefault<Switch>("incompressible", false);
+        optIncompressible_ = (incompressible) ? LCS_TRUE : LCS_FALSE;
+        Switch auxGrid = lcsOptionsDict.lookupOrDefault<Switch>("auxGrid", false);
+        optAuxGrid_ = (auxGrid) ? LCS_TRUE : LCS_FALSE;
+
+        Info<< "Finished reading LCS diagnostic settings" << endl;
     }
 }
-
 
 void Foam::LCS::execute()
 {   
-    if (active_)
-    {
-        // Do nothing - only valid on write
+    if(firstExe_){
+        start();
+        firstExe_ = false;
     }
-}
 
+    Info<< "Start executing LCS diagnostics" << endl;
+    if (active_)
+    {   
+        getVelocityField();
+        scalar time = mesh_.time().value();
+        cfd2lcs_update_c(&n_[0], u_, v_, w_ ,time);
+    }
+    Info<< "Finished executing LCS diagnostics" << endl;
+}
 
 void Foam::LCS::end()
 {
-    // Do nothing - only valid on write
+    if (id_fwd_ != -1)
+    {
+        cfd2lcs_diagnostic_destroy_c(id_fwd_);
+    }
+    
+    if (id_bkwd_ != -1)
+    {
+        cfd2lcs_diagnostic_destroy_c(id_bkwd_);
+    }
 }
-
 
 void Foam::LCS::timeSet()
 {
-    // Do nothing - only valid on write
+    
 }
-
 
 void Foam::LCS::write()
 {
+    // 
 }
-
 
 void Foam::LCS::getCellCenterCoords()
 {
-    const fvMesh& mesh = refCast<const fvMesh>(obr_);
-
+    Info<< "Start getting cell center coords for LCS diagnostic" << endl;
     // Cell centroid coordinates
-    const vectorField& centres = mesh.C().internalField();
+    const vectorField& centres = mesh_.C().internalField();
     // Loop over cell centres
     forAll (centres , celli)
     {
-        x_[celli] = mesh.C()[celli].component(0);
-        y_[celli] = mesh.C()[celli].component(1);
-        z_[celli] = mesh.C()[celli].component(2);
+        x_[celli] = mesh_.C()[celli].component(0);
+        y_[celli] = mesh_.C()[celli].component(1);
+        z_[celli] = mesh_.C()[celli].component(2);
         // set all cells als internal
         flag_[celli] = LCS_INTERNAL;
     }
 
     // Loop over all boundary patches
-    forAll (mesh.boundaryMesh(), patchi)
+    forAll (mesh_.boundaryMesh(), patchi)
     {
         // Current poly patch
-        const polyPatch& pp = mesh.boundaryMesh()[patchi];
+        const polyPatch& pp = mesh_.boundaryMesh()[patchi];
         const word& patchName = pp.name();
 
         // Velocity field
-        const volVectorField& U = mesh.lookupObject<volVectorField>(uName_);
+        const volVectorField& U = mesh_.lookupObject<volVectorField>(uName_);
         const fvPatchVectorField& U_p = U.boundaryField()[patchi];
 
 
@@ -194,7 +342,7 @@ void Foam::LCS::getCellCenterCoords()
             }
         }else if (pp.type() == "empty" || pp.type() == "symmetryPlane" || pp.type() == "wedge")
         {
-            boundaryType = LCS_SLIP;
+            boundaryType = LCS_INTERNAL;
         }else if (pp.type() == "cyclic" || pp.type() == "processor")
         {
             boundaryType = LCS_INTERNAL;
@@ -213,13 +361,42 @@ void Foam::LCS::getCellCenterCoords()
         
         
         // Loop over all faces of boundary patch
-        forAll(mesh.boundary()[patchi], facei)
+        forAll(mesh_.boundary()[patchi], facei)
         {
             // Boundary cell index
-            const label& bCell = mesh.boundary()[patchi].faceCells()[facei];
+            const label& bCell = mesh_.boundary()[patchi].faceCells()[facei];
             flag_[bCell] = boundaryType;
         }
     }
+
+    Info<< "Finished getting cell center coords for LCS diagnostic" << endl;
+}
+
+void Foam::LCS::getVelocityField()
+{
+    Info<< "Start getting velocity field for LCS diagnostic" << endl;
+    if (mesh_.foundObject<volVectorField>(uName_))
+    {
+        const volVectorField& u = mesh_.lookupObject<volVectorField>(uName_);
+        const vectorField& uIn = u.internalField();
+
+        if (!uIn.empty())
+        {
+            forAll (uIn, celli)
+            {
+                u_[celli] = uIn[celli].component(0);
+                v_[celli] = uIn[celli].component(1);
+                w_[celli] = uIn[celli].component(2);
+            }
+        }
+    }else{
+        FatalErrorIn
+        (
+            "Foam::LCS::getVelocityField()"
+        )   << "Velocity field with name " << uName_ << " not found"
+            << exit(FatalError);
+    }
+    Info<< "Finished getting velocity field for LCS diagnostic" << endl;
 }
 
 void Foam::LCS::getNumberOfCellsInDirection()
@@ -229,43 +406,49 @@ void Foam::LCS::getNumberOfCellsInDirection()
 
 void Foam::LCS::initializeLCSDiagnostics()
 {
-    //TODO
-    lcsdata_t T = 15.0;
-    lcsdata_t H = 1.5;
-    char labelfwd[LCS_NAMELEN]="fwdFTLE";
-    id_fwd = cfd2lcs_diagnostic_init_c(FTLE_FWD,res_,T,H,labelfwd);
+    Info<< "Start initializing LCS diagnostic" << endl;
+    if(ftleFwd_){
+        char labelfwd[LCS_NAMELEN]="fwdFTLE";
+        id_fwd_ = cfd2lcs_diagnostic_init_c(FTLE_FWD,res_,T_,H_,labelfwd);
+    }
+
+    if(ftleBkwd_){
+        char labelbkwd[LCS_NAMELEN]="bkwdFTLE";
+        id_bkwd_ = cfd2lcs_diagnostic_init_c(FTLE_BKWD, res_, T_, H_, labelbkwd);
+    } 
+    Info<< "Finished initializing LCS diagnostic" << endl;
 }
 
 void Foam::LCS::setLCSoptions()
 {
-    //TODO
+    Info<< "Start setting LCS diagnostic options" << endl;
     char option1[] = "SYNCTIMER";
-    cfd2lcs_set_option_c(option1,LCS_FALSE);
+    cfd2lcs_set_option_c(option1,optSynctimer_);
 
     char option2[] = "DEBUG";
-    cfd2lcs_set_option_c(option2,LCS_FALSE);
+    cfd2lcs_set_option_c(option2,optDebug_);
 
     char option3[] = "WRITE_FLOWMAP";
-    cfd2lcs_set_option_c(option3,LCS_FALSE);
+    cfd2lcs_set_option_c(option3,optWriteFlowmap_);
  
     char option4[] = "WRITE_BCFLAG";
-    cfd2lcs_set_option_c(option4,LCS_FALSE);
+    cfd2lcs_set_option_c(option4,optWriteBCFalgs_);
 
     char option5[] = "INCOMPRESSIBLE";
-    cfd2lcs_set_option_c(option5,LCS_FALSE);
+    cfd2lcs_set_option_c(option5,optIncompressible_);
 
     char option6[] = "AUX_GRID";
-    cfd2lcs_set_option_c(option6,LCS_FALSE);
+    cfd2lcs_set_option_c(option6,optAuxGrid_);
 
     char option7[] = "INTEGRATOR";
-    cfd2lcs_set_option_c(option7,RK3);
+    cfd2lcs_set_option_c(option7,lcsIntegrator_);
 
     char option8[] = "INTERPOLATOR";
-    cfd2lcs_set_option_c(option8,LINEAR);
+    cfd2lcs_set_option_c(option8,lcsInterpolator_);
 
     char option9[] = "CFL";
-    lcsdata_t CFL = 0.9;
-    cfd2lcs_set_param_c(option9, CFL);
+    cfd2lcs_set_param_c(option9, lcsCFL_);
+    Info<< "Finished setting LCS diagnostic options" << endl;
 }
 
 // ************************************************************************* //
