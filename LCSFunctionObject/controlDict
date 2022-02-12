@@ -53,7 +53,7 @@ functions
         functionObjectLibs ("libLCSFunctionObject.so");
 
         // Numer of cells in mesh in x, y and z direction (must correspond with used mesh)
-        n (100 100 1);
+        n (20 20 1);
 
         // Velocity field name
         velocityName "U";

@@ -69,7 +69,7 @@ Interface function prototypes:
 These are available to the user.  Could put this
 in the header, but I worry about multiple defines of mpi.h
 */
-void cfd2lcs_init_c(
+extern void cfd2lcs_init_c(
 	MPI_Comm usercomm,
 	int n[3],
 	int offset[3],
@@ -79,7 +79,7 @@ void cfd2lcs_init_c(
 	int *flag
 );
 
-int cfd2lcs_diagnostic_init_c(
+extern int cfd2lcs_diagnostic_init_c(
 	int lcs_type,
 	int resolution,
 	lcsdata_t t,
@@ -87,7 +87,7 @@ int cfd2lcs_diagnostic_init_c(
 	char label[]
 );
 
-void cfd2lcs_update_c(
+extern void cfd2lcs_update_c(
 	int n[3],
 	lcsdata_t *u,
 	lcsdata_t *v,
@@ -95,16 +95,16 @@ void cfd2lcs_update_c(
 	lcsdata_t time
 );
 
-void cfd2lcs_diagnostic_destroy_c(
+extern void cfd2lcs_diagnostic_destroy_c(
 	int lcs_handle
 );
 
-void cfd2lcs_set_option_c(
+extern void cfd2lcs_set_option_c(
 	char option[],
 	int val
 );
 
-void cfd2lcs_set_param_c(
+extern void cfd2lcs_set_param_c(
 	char option[],
 	lcsdata_t val
 );

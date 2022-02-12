@@ -25,7 +25,6 @@ License
 
 #include "LCS.H"
 #include "dictionary.H"
-#include "cfd2lcs_inc_sp.h"
 
 // * * * * * * * * * * * * * * Static Data Members * * * * * * * * * * * * * //
 
@@ -47,7 +46,9 @@ Foam::LCS::LCS
 :
     name_(name),
     mesh_(refCast<const fvMesh>(obr)),
-    controlDict_(obr.time().controlDict())
+    controlDict_(obr.time().controlDict()),
+    globalBb_(refCast<const fvMesh>(obr).bounds()),
+    localBb_(refCast<const fvMesh>(obr).points(), false)
 {
     // Check if the available mesh is an fvMesh, otherwise deactivate
     if (!isA<fvMesh>(mesh_))
@@ -65,7 +66,6 @@ Foam::LCS::LCS
         )   << "No fvMesh available, deactivating " << name_ << nl
             << endl;
     }
-
     read(dict);
 }
 
@@ -83,16 +83,14 @@ bool Foam::LCS::start()
     Info<< "Start initializing LCS diagnostics" << endl;
     if (active_)
     {
-        // mpi communicator
+        // Mpi communicator
         MPI_Comm comm = MPI_COMM_WORLD;
 
-        // number of grid points for THIS partition in x=i, y=j and z=k direction
-        // !! for now user has to provide information in dict !!
-        // getNumberOfCellsInDirection();
+        // Compute number of grid points for THIS partition in x=i, y=j and z=k direction
+        getNumberOfCellsInDirection();
 
-        // Global offset for these grid points
-        // parallel computation not supported yet
-        int offset[3]= {0,0,0};
+        // Compute offset of local mesh in respect to the global mesh 
+        getOffset();
 
         // Allocate space for data used by lcs library
         x_ = static_cast<lcsdata_t*>(malloc(n_[0]*n_[1]*n_[2]*sizeof(lcsdata_t)));
@@ -108,13 +106,16 @@ bool Foam::LCS::start()
         getCellCenterCoords();
 
         // Initializes the communications and data storage for OpenFoam data input
-        cfd2lcs_init_c(comm,&n_[0],offset,x_,y_,z_,flag_);
+        cfd2lcs_init_c(comm,n_.data(),offset_.data(),x_,y_,z_,flag_);
 
         // Initialize LCS diagnostics
         initializeLCSDiagnostics();
 
         // Set CFD2LCS options/parameters
         setLCSoptions();
+
+        // start() has been called
+        firstExe_ = false;
     }
 
     Info<< "Finished initializing LCS diagnostics" << endl;
@@ -126,7 +127,7 @@ void Foam::LCS::read(const dictionary& dict)
     Info<< "Start Reading LCS diagnostic settings" << endl;
     if (active_)
     {
-        n_ = dict.lookup("n");
+        globalN_ = dict.lookup("n");
         uName_ = dict.lookupOrDefault<word>("velocityName", "U");
         ftleFwd_ = dict.lookupOrDefault<Switch>("ftleFwd", true);
         ftleBkwd_ = dict.lookupOrDefault<Switch>("ftleBkwd", false);
@@ -266,7 +267,6 @@ void Foam::LCS::execute()
 {   
     if(firstExe_){
         start();
-        firstExe_ = false;
     }
 
     Info<< "Start executing LCS diagnostics" << endl;
@@ -274,7 +274,9 @@ void Foam::LCS::execute()
     {   
         getVelocityField();
         scalar time = mesh_.time().value();
-        cfd2lcs_update_c(&n_[0], u_, v_, w_ ,time);
+        Info<< "Start updating lcs diagnostics" << endl;
+        cfd2lcs_update_c(n_.data(), u_, v_, w_ ,time);
+        Info<< "Finished updating lcs diagnostics" << endl;
     }
     Info<< "Finished executing LCS diagnostics" << endl;
 }
@@ -401,7 +403,27 @@ void Foam::LCS::getVelocityField()
 
 void Foam::LCS::getNumberOfCellsInDirection()
 {
-    // For now user has to provide information in dict
+    n_.setSize(3);
+    // Assuming that LCS mesh has constant cell size along each axis
+    n_[0] = round(globalN_[0] * (localBb_.max().component(0) - localBb_.min().component(0)) / (globalBb_.max().component(0) - globalBb_.min().component(0)));
+    n_[1] = round(globalN_[1] * (localBb_.max().component(1) - localBb_.min().component(1)) / (globalBb_.max().component(1) - globalBb_.min().component(1)));
+    n_[2] = round(globalN_[2] * (localBb_.max().component(2) - localBb_.min().component(2)) / (globalBb_.max().component(2) - globalBb_.min().component(2)));
+
+    Pout<< "local bounding box:" << localBb_ << endl;
+    Pout<< "Number of cells in x:" << n_[0] << " y:" << n_[1] << " z:" << n_[2]  << endl;
+
+}
+
+void Foam::LCS::getOffset()
+{
+    offset_.setSize(3);
+    // Assuming that LCS mesh has constant cell size along each axis
+    offset_[0] = round(n_[0] * (localBb_.min().component(0) - globalBb_.min().component(0)) / (localBb_.max().component(0) - localBb_.min().component(0)));
+    offset_[1] = round(n_[1] * (localBb_.min().component(1) - globalBb_.min().component(1)) / (localBb_.max().component(1) - localBb_.min().component(1)));
+    offset_[2] = round(n_[2] * (localBb_.min().component(2) - globalBb_.min().component(2)) / (localBb_.max().component(2) - localBb_.min().component(2)));
+
+    Pout<< "Offset in x:" << offset_[0] << " y:" << offset_[1] << " z:" << offset_[2]  << endl;
+
 }
 
 void Foam::LCS::initializeLCSDiagnostics()

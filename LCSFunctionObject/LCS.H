@@ -66,7 +66,9 @@ SourceFiles
 #include "fvMesh.H"
 
 // include cfd2lcs functionalities
+extern "C" {
 #include "cfd2lcs_inc_sp.h"
+};
 
 
 
@@ -99,11 +101,23 @@ class LCS
         //- Refererence to controlDict
         const dictionary& controlDict_;
 
+        //- global bounding box
+        const boundBox& globalBb_;
+
+        //- local bounding box
+        const boundBox localBb_;
+
         //- On/off switch
         bool active_ = true;
 
         //- Indicator for first execution of function object
         bool firstExe_ = true;
+
+        //- Number of grid points in local mesh
+        labelList n_;
+
+        //- Local grid offset in respect to global mesh
+        labelList offset_;
 
         //- Grid coordinates and velocities
         lcsdata_t *x_, *y_, *z_, *u_, *v_, *w_;
@@ -117,8 +131,8 @@ class LCS
 
         // Read from dictionary
 
-            //- Number of grid points
-            labelList n_;
+            //- Number of grid points in global mesh
+            labelList globalN_;
 
             //- Name of velocity field, default is "U"
             word uName_;
@@ -159,6 +173,7 @@ class LCS
         void getCellCenterCoords();
         void getVelocityField();
         void getNumberOfCellsInDirection();
+        void getOffset();
         void initializeLCSDiagnostics();
         void setLCSoptions();
 
