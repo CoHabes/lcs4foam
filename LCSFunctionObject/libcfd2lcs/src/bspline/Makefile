@@ -18,10 +18,22 @@ sp: headers_sp libbspline_sp.a
 	mv libbspline_sp.a ./../../lib
 	$(info ********  libbspline_sp.a COMPILATION SUCCESSFUL ***********)
 
+sp_shared: headers_sp libbspline_sp.so
+	mkdir -p ./../../lib
+	mv libbspline_sp.so ./../../lib
+	cp ./../../lib/libbspline_sp.so $(FOAM_USER_LIBBIN)/
+	$(info ********  libbspline_sp.so COMPILATION SUCCESSFUL ***********)
+
 dp: headers_dp libbspline_dp.a
 	mkdir -p ./../../lib
 	mv libbspline_dp.a ./../../lib
+	cp ./../../lib/libbspline_dp.so $(FOAM_USER_LIBBIN)/
 	$(info ********  libbspline_dp.a COMPILATION SUCCESSFUL ***********)
+
+dp_shared: headers_dp libbspline_dp.so
+	mkdir -p ./../../lib
+	mv libbspline_dp.so ./../../lib
+	$(info ********  libbspline_dp.so COMPILATION SUCCESSFUL ***********)
 
 headers_sp:
 	$(info ************  COMPILING libbspline_sp.a ********************)
@@ -33,6 +45,9 @@ headers_dp:
 
 libbspline_sp.a libbspline_dp.a:	$(OBJS)
 	$(AR) $@ $(OBJS)
+
+libbspline_sp.so libbspline_dp.so:	$(OBJS)
+	$(CC) -fPIC -shared -o $@ $(OBJS)
 
 .f90.o:
 	$(F90) $(FFLAGS) -$(INC). $*.f90

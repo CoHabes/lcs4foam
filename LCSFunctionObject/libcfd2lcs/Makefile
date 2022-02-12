@@ -109,6 +109,14 @@ YOUR_NEW_PLATFORM:
 	(make libclean)
 	(cd src ; make clean; make sp; make clean; make dp)
 
+# FOR_OPENFOAM
+FOR_OPENFOAM:
+	(ln -fs makefiles/Makefile.FOR_OPENFOAM.in Makefile.in)
+	(sed -i '/CFD2LCS_PREFIX =/c\CFD2LCS_PREFIX = '"$$PWD"''\
+        ./makefiles/Makefile.FOR_OPENFOAM.in)
+	(make libclean)
+	(cd src ; make clean; make sp_shared; make clean; make dp_shared;)
+
 
 
 ########

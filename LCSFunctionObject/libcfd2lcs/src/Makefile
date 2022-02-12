@@ -41,21 +41,39 @@ OBJS = \
 .SUFFIXES: .c .o
 
 default:
-	$(info -----------------------------------------)
-	$(info ERROR: Compile with one of the following:)
-	$(info 1.	make sp:  single precision          )
-	$(info 2.	make dp:  double precision          )
-	$(info -----------------------------------------)
+	$(info -----------------------------------------------------------)
+	$(info ERROR: Compile with one of the following:				  )
+	$(info 1.	make sp:  single precision          				  )
+	$(info 2.	make dp:  double precision          				  )
+	$(info 2.	make sp_shared:  shared lib single precision          )
+	$(info 2.	make dp_shared:  shared lib double precision          )
+	$(info -----------------------------------------------------------)
 
 sp: headers_sp libbspline_sp.a libcfd2lcs_sp.a
 	mkdir -p ./../lib
 	cp libcfd2lcs_sp.a ./../lib
 	$(info *** LIBCFD2LCS SINGLE PRECISION COMPILATION SUCCESSFUL *****)
 
+sp_shared: headers_sp libbspline_sp.so libcfd2lcs_sp.so
+	mkdir -p ./../lib
+	cp libcfd2lcs_sp.so ./../lib
+	cp ./../lib/libcfd2lcs_sp.so $(FOAM_USER_LIBBIN)/
+	$(info *** DYNAMIC LIBCFD2LCS SINGLE PRECISION COMPILATION SUCCESSFUL *****)
+
 dp: headers_dp libbspline_dp.a libcfd2lcs_dp.a
 	mkdir -p ./../lib
 	cp libcfd2lcs_dp.a ./../lib
 	$(info *** LIBCFD2LCS DOUBLE PRECISION COMPILATION SUCCESSFUL *****)
+
+dp_shared: headers_dp libbspline_dp.so libcfd2lcs_dp.so
+	mkdir -p ./../lib
+	cp libcfd2lcs_dp.so ./../lib
+	cp ./../lib/libcfd2lcs_dp.so $(FOAM_USER_LIBBIN)/
+	$(info *** DYNAMIC LIBCFD2LCS DOUBLE PRECISION COMPILATION SUCCESSFUL *****)
+
+
+libcfd2lcs_sp.so libcfd2lcs_dp.so:	$(OBJS)
+	$(CC) -fPIC -shared -o $@  $(OBJS)
 
 sp_dep: sp libcfd2lcs_sp_dep.a
 
@@ -80,8 +98,14 @@ headers_dp:
 libbspline_sp.a:
 	cd bspline; make sp
 
+libbspline_sp.so:
+	cd bspline; make sp_shared
+
 libbspline_dp.a:
 	cd bspline; make dp
+
+libbspline_dp.so:
+	cd bspline; make dp_shared
 
 libcfd2lcs_sp.a libcfd2lcs_dp.a:	$(OBJS)
 	$(AR) $@ $(OBJS)
