@@ -13,6 +13,6 @@ LIB_LIBS = \
     -lmeshTools \
     -L$(OPENMPI_DIR)/lib -lmpi_cxx -lmpi -lmpi_usempif08 -lmpi_usempi_ignore_tkr -lmpi_mpifh \
     -L/usr/lib/x86_64-linux-gnu/lapack -llapack \
-    -L$(FOAM_USER_LIBBIN) -lcfd2lcs_sp -lbspline_sp
+    -L$(FOAM_USER_LIBBIN) -lcfd2lcs_dp -lbspline_dp
     
  

@@ -500,7 +500,7 @@ module lp_m
             enddo
 
             !Make normp a unit vector
-            nmag%r = sqrt(normp%x*normp%x+normp%y*normp%y+normp%z*normp%z)
+            nmag%r = max(sqrt(normp%x*normp%x+normp%y*normp%y+normp%z*normp%z), tiny(normp%x))
             normp%x = normp%x/nmag%r
             normp%y = normp%y/nmag%r
             normp%z = normp%z/nmag%r

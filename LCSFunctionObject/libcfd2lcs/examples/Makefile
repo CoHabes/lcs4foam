@@ -3,7 +3,7 @@
 #All dependencies and include paths are stored in the variables
 #CFD2LCS_LIBS and CFD2LCS_INC in the Makefile.in of the top-level
 #cfd2lcs directory.  Modify the line here to point to it on your system.
-CFD2LCS_HOME = /home/constantin/MMA/libcfd2lcs
+CFD2LCS_HOME = /home/constantin/foam/constantin-4.1/LCS/LCSFunctionObject/libcfd2lcs
 include $(CFD2LCS_HOME)/Makefile.in
 ##############
 

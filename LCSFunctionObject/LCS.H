@@ -67,7 +67,7 @@ SourceFiles
 
 // include cfd2lcs functionalities
 extern "C" {
-#include "cfd2lcs_inc_sp.h"
+#include "cfd2lcs_inc_dp.h"
 };
 
 

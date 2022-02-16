@@ -793,13 +793,17 @@ subroutine cfd2lcs_info()
             write(*,'(a)')&
             '| PARTICLE INTEGRATIONS |  NUMBER [N/STEP]  |     RATE [N/SEC]   |'
             write(*,'(a,ES18.4,a,ES18.4,a)') &
-            '|Forward (this step):   |',real(integrations_fwd),' | ', real(integrations_fwd,LCSRP)/this_cpu_fwd,' |'
+            '|Forward (this step):   |',real(integrations_fwd),' | ', &
+            real(integrations_fwd,LCSRP)/max(this_cpu_fwd,epsilon(this_cpu_fwd)),' |'
             write(*,'(a,ES18.4,a,ES18.4,a)') &
-            '|Backward (this step):  |',real(integrations_bkwd),' | ', real(integrations_bkwd,LCSRP)/this_cpu_bkwd,' |'
+            '|Backward (this step):  |',real(integrations_bkwd),' | ', &
+            real(integrations_bkwd,LCSRP)/max(this_cpu_bkwd,epsilon(this_cpu_bkwd)),' |'
             write(*,'(a,ES18.4,a,ES18.4,a)') &
-            '|Forward (cumulative):  |',real(integrations_fwd_c),' | ', real(integrations_fwd_c,LCSRP)/cpu_fwd_c,' |'
+            '|Forward (cumulative):  |',real(integrations_fwd_c),' | ', &
+            real(integrations_fwd_c,LCSRP)/max(cpu_fwd_c,epsilon(cpu_fwd_c)),' |'
             write(*,'(a,ES18.4,a,ES18.4,a)') &
-            '|Backward (cumulative): |',real(integrations_bkwd_c),' | ', real(integrations_bkwd_c,LCSRP)/cpu_bkwd_c,' |'
+            '|Backward (cumulative): |',real(integrations_bkwd_c),' | ', &
+            real(integrations_bkwd_c,LCSRP)/max(cpu_bkwd_c,epsilon(cpu_bkwd_c)),' |'
             write(*,'(a)')    '------------------------------------------------------------------'
             integrations_fwd = 0
             integrations_bkwd = 0

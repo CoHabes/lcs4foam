@@ -167,7 +167,7 @@ module lp_motion_m
             select case(INTEGRATOR)
             case (EULER) !1st order
                   !Advance based on beginning of subcycle
-                  ct = max(min((t-t0)/(t1-t0),1.0_LCSRP),0.0_LCSRP)
+                  ct = max(min((t-t0)/(sign(max(abs(t1-t0), tiny(t0)), t1-t0)),1.0_LCSRP),0.0_LCSRP)
                   u%x = (1.0_LCSRP-ct)*flow%u_n%x + ct*flow%u_np1%x
                   u%y = (1.0_LCSRP-ct)*flow%u_n%y + ct*flow%u_np1%y
                   u%z = (1.0_LCSRP-ct)*flow%u_n%z + ct*flow%u_np1%z
@@ -179,7 +179,7 @@ module lp_motion_m
 
             case(TRAPEZOIDAL) !2nd order
                   !Advance based on midpoint of the subcycle
-                  ct = max(min((t+ONEHALF*dt-t0)/(t1-t0),1.0_LCSRP),0.0_LCSRP)
+                  ct = max(min((t+ONEHALF*dt-t0)/(sign(max(abs(t1-t0), tiny(t0)), t1-t0)),1.0_LCSRP),0.0_LCSRP)
                   u%x = (1.0_LCSRP-ct)*flow%u_n%x + ct*flow%u_np1%x
                   u%y = (1.0_LCSRP-ct)*flow%u_n%y + ct*flow%u_np1%y
                   u%z = (1.0_LCSRP-ct)*flow%u_n%z + ct*flow%u_np1%z
@@ -190,7 +190,7 @@ module lp_motion_m
 
             case(RK2) !2nd order
                   !advance to t_np1h
-                  ct = max(min((t-t0)/(t1-t0),1.0_LCSRP),0.0_LCSRP)
+                  ct = max(min((t-t0)/(sign(max(abs(t1-t0), tiny(t0)), t1-t0)),1.0_LCSRP),0.0_LCSRP)
                   u%x = (1.0_LCSRP-ct)*flow%u_n%x + ct*flow%u_np1%x
                   u%y = (1.0_LCSRP-ct)*flow%u_n%y + ct*flow%u_np1%y
                   u%z = (1.0_LCSRP-ct)*flow%u_n%z + ct*flow%u_np1%z
@@ -199,7 +199,7 @@ module lp_motion_m
                   lp%xp%y(1:lp%np) = lp%xp%y(1:lp%np) + ONEHALF*dt*lp%up%y(1:lp%np)
                   lp%xp%z(1:lp%np) = lp%xp%z(1:lp%np) + ONEHALF*dt*lp%up%z(1:lp%np)
                   !Compute velocity at xnp1h,tnp1h
-                  ct = max(min((t+ONEHALF*dt-t0)/(t1-t0),1.0_LCSRP),0.0_LCSRP)
+                  ct = max(min((t+ONEHALF*dt-t0)/(sign(max(abs(t1-t0), tiny(t0)), t1-t0)),1.0_LCSRP),0.0_LCSRP)
                   u%x = (1.0_LCSRP-ct)*flow%u_n%x + ct*flow%u_np1%x
                   u%y = (1.0_LCSRP-ct)*flow%u_n%y + ct*flow%u_np1%y
                   u%z = (1.0_LCSRP-ct)*flow%u_n%z + ct*flow%u_np1%z
@@ -215,7 +215,7 @@ module lp_motion_m
                   xnp1%y = xn%y
                   xnp1%z = xn%z
                   !Evaluate K1
-                  ct = max(min((t-t0)/(t1-t0),1.0_LCSRP),0.0_LCSRP)
+                  ct = max(min((t-t0)/(sign(max(abs(t1-t0), tiny(t0)), t1-t0)),1.0_LCSRP),0.0_LCSRP)
                   u%x = (1.0_LCSRP-ct)*flow%u_n%x + ct*flow%u_np1%x
                   u%y = (1.0_LCSRP-ct)*flow%u_n%y + ct*flow%u_np1%y
                   u%z = (1.0_LCSRP-ct)*flow%u_n%z + ct*flow%u_np1%z
@@ -228,7 +228,7 @@ module lp_motion_m
                   xnp1%z(1:lp%np) = xnp1%z(1:lp%np)+ONESIXTH*k%z(1:lp%np)
                   !Evaluate K2
                   !NB: Perform half update of using k1, compute k2, then update again.
-                  ct = max(min((t+ONEHALF*dt-t0)/(t1-t0),1.0_LCSRP),0.0_LCSRP)
+                  ct = max(min((t+ONEHALF*dt-t0)/(sign(max(abs(t1-t0), tiny(t0)), t1-t0)),1.0_LCSRP),0.0_LCSRP)
                   u%x = (1.0_LCSRP-ct)*flow%u_n%x + ct*flow%u_np1%x
                   u%y = (1.0_LCSRP-ct)*flow%u_n%y + ct*flow%u_np1%y
                   u%z = (1.0_LCSRP-ct)*flow%u_n%z + ct*flow%u_np1%z
@@ -249,7 +249,7 @@ module lp_motion_m
                   xnp1%y(1:lp%np) = xnp1%y(1:lp%np)+TWOTHIRD*k%y(1:lp%np)     
                   xnp1%z(1:lp%np) = xnp1%z(1:lp%np)+TWOTHIRD*k%z(1:lp%np)
                   !Evaluate K3.  Note particle already at correct position
-                  ct = max(min((t+dt-t0)/(t1-t0),1.0_LCSRP),0.0_LCSRP)
+                  ct = max(min((t+dt-t0)/(sign(max(abs(t1-t0), tiny(t0)), t1-t0)),1.0_LCSRP),0.0_LCSRP)
                   u%x = (1.0_LCSRP-ct)*flow%u_n%x + ct*flow%u_np1%x
                   u%y = (1.0_LCSRP-ct)*flow%u_n%y + ct*flow%u_np1%y
                   u%z = (1.0_LCSRP-ct)*flow%u_n%z + ct*flow%u_np1%z
@@ -260,7 +260,7 @@ module lp_motion_m
                   !Set the final position at tnp1:
                   lp%xp%x(1:lp%np) = xnp1%x(1:lp%np)+ONESIXTH*k%x(1:lp%np)    
                   lp%xp%y(1:lp%np) = xnp1%y(1:lp%np)+ONESIXTH*k%y(1:lp%np)    
-                  lp%xp%z(1:lp%np) = xnp1%z(1:lp%np)+ONESIXTH*k%z(1:lp%np)    
+                  lp%xp%z(1:lp%np) = xnp1%z(1:lp%np)+ONESIXTH*k%z(1:lp%np)
 
             case (RK4) !4th order
                   !IC
@@ -268,7 +268,7 @@ module lp_motion_m
                   xnp1%y = xn%y
                   xnp1%z = xn%z
                   !Evaluate K1
-                  ct = max(min((t-t0)/(t1-t0),1.0_LCSRP),0.0_LCSRP)
+                  ct = max(min((t-t0)/(sign(max(abs(t1-t0), tiny(t0)), t1-t0)),1.0_LCSRP),0.0_LCSRP)
                   u%x = (1.0_LCSRP-ct)*flow%u_n%x + ct*flow%u_np1%x
                   u%y = (1.0_LCSRP-ct)*flow%u_n%y + ct*flow%u_np1%y
                   u%z = (1.0_LCSRP-ct)*flow%u_n%z + ct*flow%u_np1%z
@@ -280,7 +280,7 @@ module lp_motion_m
                   xnp1%y(1:lp%np) = xnp1%y(1:lp%np)+ONESIXTH*k%y(1:lp%np)     
                   xnp1%z(1:lp%np) = xnp1%z(1:lp%np)+ONESIXTH*k%z(1:lp%np)
                   !Evaluate K2
-                  ct = max(min((t+ONEHALF*dt-t0)/(t1-t0),1.0_LCSRP),0.0_LCSRP)
+                  ct = max(min((t+ONEHALF*dt-t0)/(sign(max(abs(t1-t0), tiny(t0)), t1-t0)),1.0_LCSRP),0.0_LCSRP)
                   u%x = (1.0_LCSRP-ct)*flow%u_n%x + ct*flow%u_np1%x
                   u%y = (1.0_LCSRP-ct)*flow%u_n%y + ct*flow%u_np1%y
                   u%z = (1.0_LCSRP-ct)*flow%u_n%z + ct*flow%u_np1%z
@@ -295,7 +295,7 @@ module lp_motion_m
                   xnp1%y(1:lp%np) = xnp1%y(1:lp%np)+ONETHIRD*k%y(1:lp%np)     
                   xnp1%z(1:lp%np) = xnp1%z(1:lp%np)+ONETHIRD*k%z(1:lp%np)
                   !Evaluate K3
-                  ct = max(min((t+ONEHALF*dt-t0)/(t1-t0),1.0_LCSRP),0.0_LCSRP)
+                  ct = max(min((t+ONEHALF*dt-t0)/(sign(max(abs(t1-t0), tiny(t0)), t1-t0)),1.0_LCSRP),0.0_LCSRP)
                   u%x = (1.0_LCSRP-ct)*flow%u_n%x + ct*flow%u_np1%x
                   u%y = (1.0_LCSRP-ct)*flow%u_n%y + ct*flow%u_np1%y
                   u%z = (1.0_LCSRP-ct)*flow%u_n%z + ct*flow%u_np1%z
@@ -310,7 +310,7 @@ module lp_motion_m
                   xnp1%y(1:lp%np) = xnp1%y(1:lp%np)+ONETHIRD*k%y(1:lp%np)     
                   xnp1%z(1:lp%np) = xnp1%z(1:lp%np)+ONETHIRD*k%z(1:lp%np)
                   !Evaluate K4
-                  ct = max(min((t+dt-t0)/(t1-t0),1.0_LCSRP),0.0_LCSRP)
+                  ct = max(min((t+dt-t0)/(sign(max(abs(t1-t0), tiny(t0)), t1-t0)),1.0_LCSRP),0.0_LCSRP)
                   u%x = (1.0_LCSRP-ct)*flow%u_n%x + ct*flow%u_np1%x
                   u%y = (1.0_LCSRP-ct)*flow%u_n%y + ct*flow%u_np1%y
                   u%z = (1.0_LCSRP-ct)*flow%u_n%z + ct*flow%u_np1%z

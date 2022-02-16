@@ -27,12 +27,12 @@ sp_shared: headers_sp libbspline_sp.so
 dp: headers_dp libbspline_dp.a
 	mkdir -p ./../../lib
 	mv libbspline_dp.a ./../../lib
-	cp ./../../lib/libbspline_dp.so $(FOAM_USER_LIBBIN)/
 	$(info ********  libbspline_dp.a COMPILATION SUCCESSFUL ***********)
 
 dp_shared: headers_dp libbspline_dp.so
 	mkdir -p ./../../lib
 	mv libbspline_dp.so ./../../lib
+	cp ./../../lib/libbspline_dp.so $(FOAM_USER_LIBBIN)/
 	$(info ********  libbspline_dp.so COMPILATION SUCCESSFUL ***********)
 
 headers_sp:
