@@ -333,32 +333,31 @@ void Foam::LCS::getCellCenterCoords()
 
         // determine boundary type
         label boundaryType = LCS_INTERNAL;
+        
         if (pp.type() == "wall")
         {
-            if (U_p.type() == "slip")
-            {
-                boundaryType = LCS_SLIP;
-            }else
-            {
-                boundaryType = LCS_WALL;
-            }
-        }else if (pp.type() == "empty" || pp.type() == "symmetryPlane" || pp.type() == "wedge")
+            boundaryType = LCS_SLIP;
+            // if (U_p.type() == "slip")
+            // {
+            //     boundaryType = LCS_SLIP;
+            // }else
+            // {
+            //     boundaryType = LCS_WALL;
+            // }
+        }else if (pp.type() == "empty" || pp.type() == "symmetryPlane" || pp.type() == "wedge" || pp.type() == "cyclic" || pp.type() == "processor")
         {
             boundaryType = LCS_INTERNAL;
-        }else if (pp.type() == "cyclic" || pp.type() == "processor")
+        }else
         {
-            boundaryType = LCS_INTERNAL;
-        }
-        else
-        {
+            boundaryType = LCS_OUTFLOW;
             // TODO: Use U boundary Field to determine boundary field type or use regex for patchnames
-            if (patchName == "inlet" || patchName == "Inlet")
-            {
-                boundaryType = LCS_INFLOW;
-            }else if (patchName == "outlet" || patchName == "Outlet")
-            {
-                boundaryType = LCS_OUTFLOW;
-            }
+            // if (patchName == "inlet" || patchName == "Inlet")
+            // {
+            //     boundaryType = LCS_INFLOW;
+            // }else if (patchName == "outlet" || patchName == "Outlet")
+            // {
+            //     boundaryType = LCS_OUTFLOW;
+            // }
         }
         
         
@@ -367,7 +366,10 @@ void Foam::LCS::getCellCenterCoords()
         {
             // Boundary cell index
             const label& bCell = mesh_.boundary()[patchi].faceCells()[facei];
-            flag_[bCell] = boundaryType;
+            if(boundaryType != LCS_INTERNAL && flag_[bCell] != LCS_WALL && flag_[bCell] != LCS_SLIP)
+            {
+                flag_[bCell] = boundaryType;
+            }
         }
     }
 
