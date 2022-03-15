@@ -160,7 +160,7 @@ module io_m
                   write(funit,'(a,a,a)') 'T = "',trim(lp%label),'"'
                   write(funit,'(a,i10.10,a,ES18.4)') 'STRANDID = ',lp%id+1,', SOLUTIONTIME = ',scfd%t_np1
                   write(funit,'(a,i10.10,a,i10.10,a,i10.10)') 'I = ',lp%npall,' J = ',1, ' K = ',1
-                  write(funit,'(a)') 'ZONETYPE = Ordered, DATAPACKING = POINT'
+                  write(funit,'(a)') 'DATAPACKING = POINT'
                   close(funit)
             endif
 
@@ -232,7 +232,7 @@ module io_m
                   write(funit,'(a,a,a)') 'T = "',trim(lcs%ftle%label),'"'
                   write(funit,'(a,i10.10,a,ES18.4)') 'STRANDID = ',FTLE_STRAND,', SOLUTIONTIME = ',scfd%t_np1
                   write(funit,'(a,i10.10,a,i10.10,a,i10.10)') 'I = ',gn(1),' J = ',gn(2), ' K = ',gn(3)
-                  write(funit,'(a)') 'ZONETYPE = Ordered, DATAPACKING = BLOCK'
+                  write(funit,'(a)') 'DATAPACKING = BLOCK'
                   close(funit)
             endif
 
@@ -423,7 +423,7 @@ module io_m
                               write(funit,'(a)') 'ZONE'
                               write(funit,'(a,a,a,i10.10,a)') 'T = "',trim(groupname),'_',lcsrank,'"'
                               write(funit,'(a,i10.10,a,i10.10,a,i10.10)') 'I = ',ni,' J = ',nj, ' K = ',nk
-                              write(funit,'(a)') 'ZONETYPE = Ordered, DATAPACKING = BLOCK'
+                              write(funit,'(a)') 'DATAPACKING = BLOCK'
                         elseif (TMP_FILE_FORMAT == BINARY) then
                               open(funit,file=fname,status='replace',form='unformatted')
                         endif
