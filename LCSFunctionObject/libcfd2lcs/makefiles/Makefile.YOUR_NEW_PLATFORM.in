@@ -17,8 +17,9 @@ INC = I		#Include flag
 HDF5_SUPPORT = "FALSE"
 
 #MPI
-MPI_LIBS = -L${OPENMPI_LIB_DIR}
-MPI_INC = -$(INC)${OPENMPI_INCLUDE_DIR}
+MPI =/usr/lib/x86_64-linux-gnu/openmpi/
+MPI_LIBS = -L$(MPI)/lib/ -lmpi -lmpif90
+MPI_INC = -$(INC)$(MPI)/include/
 
 #LAPACK
 LAPACK_LIBS =-L/usr/lib/x86_64-linux-gnu/lapack -llapack

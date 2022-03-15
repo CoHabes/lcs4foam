@@ -1,5 +1,5 @@
 ################
-# Makefile.in for YOUR_NEW_PLATFORM
+# Makefile.in for FOR_OPENFOAM
 ################
 
 #Compilers & Flags:
@@ -17,7 +17,7 @@ INC = I		#Include flag
 HDF5_SUPPORT = "FALSE"
 
 #MPI
-MPI_LIBS = -L${OPENMPI_LIB_DIR} -lmpi -lmpif90
+MPI_LIBS = -L${OPENMPI_LIB_DIR} -lmpi_cxx -lmpi -lmpi_usempif08 -lmpi_usempi_ignore_tkr -lmpi_mpifh
 MPI_INC = -$(INC)${OPENMPI_INCLUDE_DIR}
 
 #LAPACK
