@@ -52,7 +52,12 @@ functions
         // Where to load it from (if not already in solver)
         functionObjectLibs ("libLCSFunctionObject.so");
 
-        // Numer of cells in mesh in x, y and z direction (must correspond with used mesh)
+        // Specifies if the main mesh is a static rectlinear Mesh 
+        // (if yes the main cfd mesh is also used for the lcs computations)
+        // (if not a rectlinear LCS blockMesh has to be created under constant/LCS/polyMesh beforehand)  
+        isStaticRectLinear true;
+
+        // Numer of cells in x, y and z direction (must correspond with mesh which is used for the lcs compuatations)
         n (20 20 1);
 
         // Velocity field name
@@ -85,7 +90,6 @@ functions
 
         interpolator    linear;
         
-
         // LCS Options
         lcsOptions
         {

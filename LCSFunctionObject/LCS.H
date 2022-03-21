@@ -64,6 +64,8 @@ SourceFiles
 #include "runTimeSelectionTables.H"
 #include "Switch.H"
 #include "fvMesh.H"
+#include "meshToMesh.H"
+
 
 // include cfd2lcs functionalities
 extern "C" {
@@ -96,7 +98,16 @@ class LCS
         word name_;
 
         //- Refererence to Db/mesh
-        const fvMesh& mesh_;
+        const fvMesh& cfdMesh_;
+
+        //- Pointer to const mesh which is used for lcs computations
+        fvMesh const* lcsMeshPtr_;
+
+        //- Pointer to mesh to mesh interpolator
+        meshToMesh* meshToMeshPtr_;
+
+        //- Pointer to lcs deignated lcs velocity if needed 
+        volVectorField* lcsVelFieldPtr_;
 
         //- Refererence to controlDict
         const dictionary& controlDict_;
@@ -130,6 +141,9 @@ class LCS
         label id_bkwd_ = -1;
 
         // Read from dictionary
+
+            //- If true use cfd mesh for lcs computation, if false use extra lcs mesh
+            Switch isStaticRectLinear_;
 
             //- Number of grid points in global mesh
             labelList globalN_;
@@ -176,6 +190,13 @@ class LCS
         void getOffset();
         void initializeLCSDiagnostics();
         void setLCSoptions();
+        void createLCSMesh();
+        
+        //- demand driven mesh to mesh interpolator
+        const meshToMesh& meshToMeshInterp();
+
+        //- demand driven volVectorField to designated lcs velocity field
+        volVectorField& lcsVelField();
 
 
         //- Disallow default bitwise copy construct
@@ -222,10 +243,10 @@ public:
         //- Read the LCS data
         virtual void read(const dictionary&);
 
-        //- Execute, currently does nothing
+        //- Execute
         virtual void execute();
 
-        //- Execute at the final time-loop, currently does nothing
+        //- Execute at the final time-loop
         virtual void end();
 
         //- Called when time was set at the end of the Time::operator++

@@ -25,6 +25,7 @@ License
 
 #include "LCS.H"
 #include "dictionary.H"
+#include "meshToMesh.H"
 
 // * * * * * * * * * * * * * * Static Data Members * * * * * * * * * * * * * //
 
@@ -45,13 +46,15 @@ Foam::LCS::LCS
 )
 :
     name_(name),
-    mesh_(refCast<const fvMesh>(obr)),
+    cfdMesh_(refCast<const fvMesh>(obr)),
+    meshToMeshPtr_(nullptr),
+    lcsVelFieldPtr_(nullptr),
     controlDict_(obr.time().controlDict()),
     globalBb_(refCast<const fvMesh>(obr).bounds()),
     localBb_(refCast<const fvMesh>(obr).points(), false)
 {
     // Check if the available mesh is an fvMesh, otherwise deactivate
-    if (!isA<fvMesh>(mesh_))
+    if (!isA<fvMesh>(cfdMesh_))
     {
         active_ = false;
         WarningIn
@@ -66,6 +69,7 @@ Foam::LCS::LCS
         )   << "No fvMesh available, deactivating " << name_ << nl
             << endl;
     }
+
     read(dict);
 }
 
@@ -80,11 +84,21 @@ Foam::LCS::~LCS()
 
 bool Foam::LCS::start()
 {
-    Info<< "Start initializing LCS diagnostics" << endl;
     if (active_)
     {
+        Info << "-----libcfd2lcs initialisation -----------------------------------" << endl;
         // Mpi communicator
         MPI_Comm comm = MPI_COMM_WORLD;
+
+        // Set lcs mesh pointer
+        if(isStaticRectLinear_)
+        {
+            lcsMeshPtr_ = &cfdMesh_;
+        }else
+        {
+            // TODO: generate/read lcsmesh, generate meshToMesh interpolator
+            createLCSMesh();
+        }
 
         // Compute number of grid points for THIS partition in x=i, y=j and z=k direction
         getNumberOfCellsInDirection();
@@ -116,17 +130,26 @@ bool Foam::LCS::start()
 
         // start() has been called
         firstExe_ = false;
+
+        Info << "------------------------------------------------------------------"<< endl;
     }
 
-    Info<< "Finished initializing LCS diagnostics" << endl;
     return true;
 }
 
 void Foam::LCS::read(const dictionary& dict)
 {   
-    Info<< "Start Reading LCS diagnostic settings" << endl;
     if (active_)
     {
+        isStaticRectLinear_ = dict.lookupOrDefault<Switch>("isStaticRectLinear", false);
+        if(isStaticRectLinear_)
+        {
+            Info << "LCSFunctionObject: Using cfd mesh for lcs computations\n" << endl;
+        }else
+        {
+            Info << "LCSFunctionObject: Using desiganted lcs mesh for lcs computations\n" << endl;
+        }
+
         globalN_ = dict.lookup("n");
         uName_ = dict.lookupOrDefault<word>("velocityName", "U");
         ftleFwd_ = dict.lookupOrDefault<Switch>("ftleFwd", true);
@@ -259,7 +282,6 @@ void Foam::LCS::read(const dictionary& dict)
         Switch auxGrid = lcsOptionsDict.lookupOrDefault<Switch>("auxGrid", false);
         optAuxGrid_ = (auxGrid) ? LCS_TRUE : LCS_FALSE;
 
-        Info<< "Finished reading LCS diagnostic settings" << endl;
     }
 }
 
@@ -269,16 +291,12 @@ void Foam::LCS::execute()
         start();
     }
 
-    Info<< "Start executing LCS diagnostics" << endl;
     if (active_)
     {   
         getVelocityField();
-        scalar time = mesh_.time().value();
-        Info<< "Start updating lcs diagnostics" << endl;
+        scalar time = cfdMesh_.time().value();
         cfd2lcs_update_c(n_.data(), u_, v_, w_ ,time);
-        Info<< "Finished updating lcs diagnostics" << endl;
     }
-    Info<< "Finished executing LCS diagnostics" << endl;
 }
 
 void Foam::LCS::end()
@@ -296,40 +314,38 @@ void Foam::LCS::end()
 
 void Foam::LCS::timeSet()
 {
-    
+  
 }
 
 void Foam::LCS::write()
 {
-    // 
 }
 
 void Foam::LCS::getCellCenterCoords()
 {
-    Info<< "Start getting cell center coords for LCS diagnostic" << endl;
     // Cell centroid coordinates
-    const vectorField& centres = mesh_.C().internalField();
+    const vectorField& centres = lcsMeshPtr_->C().internalField();
+
     // Loop over cell centres
-    forAll (centres , celli)
+    forAll (centres, celli)
     {
-        x_[celli] = mesh_.C()[celli].component(0);
-        y_[celli] = mesh_.C()[celli].component(1);
-        z_[celli] = mesh_.C()[celli].component(2);
-        // set all cells als internal
+        x_[celli] = centres[celli].component(0);
+        y_[celli] = centres[celli].component(1);
+        z_[celli] = centres[celli].component(2);
+        //set all cells als internal
         flag_[celli] = LCS_INTERNAL;
     }
 
     // Loop over all boundary patches
-    forAll (mesh_.boundaryMesh(), patchi)
+    forAll (lcsMeshPtr_->boundaryMesh(), patchi)
     {
         // Current poly patch
-        const polyPatch& pp = mesh_.boundaryMesh()[patchi];
-        const word& patchName = pp.name();
+        const polyPatch& pp = lcsMeshPtr_->boundaryMesh()[patchi];
+        // const word& patchName = pp.name();
 
         // Velocity field
-        const volVectorField& U = mesh_.lookupObject<volVectorField>(uName_);
-        const fvPatchVectorField& U_p = U.boundaryField()[patchi];
-
+        // const volVectorField& U = lcsMeshPtr_->lookupObject<volVectorField>(uName_);
+        // const fvPatchVectorField& U_p = U.boundaryField()[patchi];
 
         // determine boundary type
         label boundaryType = LCS_INTERNAL;
@@ -360,37 +376,57 @@ void Foam::LCS::getCellCenterCoords()
             // }
         }
         
-        
         // Loop over all faces of boundary patch
-        forAll(mesh_.boundary()[patchi], facei)
+        forAll(lcsMeshPtr_->boundary()[patchi], facei)
         {
             // Boundary cell index
-            const label& bCell = mesh_.boundary()[patchi].faceCells()[facei];
+            const label& bCell = lcsMeshPtr_->boundary()[patchi].faceCells()[facei];
             if(boundaryType != LCS_INTERNAL && flag_[bCell] != LCS_WALL && flag_[bCell] != LCS_SLIP)
             {
                 flag_[bCell] = boundaryType;
             }
         }
-    }
 
-    Info<< "Finished getting cell center coords for LCS diagnostic" << endl;
+    }
 }
 
 void Foam::LCS::getVelocityField()
 {
-    Info<< "Start getting velocity field for LCS diagnostic" << endl;
-    if (mesh_.foundObject<volVectorField>(uName_))
-    {
-        const volVectorField& u = mesh_.lookupObject<volVectorField>(uName_);
-        const vectorField& uIn = u.internalField();
+    Info << "get velocity field" << endl;
+    if (cfdMesh_.foundObject<volVectorField>(uName_))
+    {   
+        const volVectorField& uCfd = cfdMesh_.lookupObject<volVectorField>(uName_);
 
-        if (!uIn.empty())
+        // pointer to const velocity field that is used for lcs computations
+        vectorField const* uLcsInPtr;
+
+        if(!isStaticRectLinear_)
+        {   
+            volVectorField& uLCS = lcsVelField();
+
+            // interpolate cfd velocity field to lcs velocity field
+            meshToMeshInterp().interpolate
+            (
+                uLCS,
+                uCfd,
+                meshToMesh::INTERPOLATE
+            );
+
+            uLcsInPtr = &uLCS.internalField();
+        }else
         {
-            forAll (uIn, celli)
+            uLcsInPtr = &uCfd.internalField();
+        }
+
+        // store velocity field in ordered array for each velocity component
+        if (!uLcsInPtr->empty())
+        {
+            const vectorField uLcsIn = *uLcsInPtr;
+            forAll (uLcsIn, celli)
             {
-                u_[celli] = uIn[celli].component(0);
-                v_[celli] = uIn[celli].component(1);
-                w_[celli] = uIn[celli].component(2);
+                u_[celli] = uLcsIn[celli].component(0);
+                v_[celli] = uLcsIn[celli].component(1);
+                w_[celli] = uLcsIn[celli].component(2);
             }
         }
     }else{
@@ -400,7 +436,6 @@ void Foam::LCS::getVelocityField()
         )   << "Velocity field with name " << uName_ << " not found"
             << exit(FatalError);
     }
-    Info<< "Finished getting velocity field for LCS diagnostic" << endl;
 }
 
 void Foam::LCS::getNumberOfCellsInDirection()
@@ -430,7 +465,6 @@ void Foam::LCS::getOffset()
 
 void Foam::LCS::initializeLCSDiagnostics()
 {
-    Info<< "Start initializing LCS diagnostic" << endl;
     if(ftleFwd_){
         char labelfwd[LCS_NAMELEN]="fwdFTLE";
         id_fwd_ = cfd2lcs_diagnostic_init_c(FTLE_FWD,res_,T_,H_,labelfwd);
@@ -440,12 +474,10 @@ void Foam::LCS::initializeLCSDiagnostics()
         char labelbkwd[LCS_NAMELEN]="bkwdFTLE";
         id_bkwd_ = cfd2lcs_diagnostic_init_c(FTLE_BKWD, res_, T_, H_, labelbkwd);
     } 
-    Info<< "Finished initializing LCS diagnostic" << endl;
 }
 
 void Foam::LCS::setLCSoptions()
 {
-    Info<< "Start setting LCS diagnostic options" << endl;
     char option1[] = "SYNCTIMER";
     cfd2lcs_set_option_c(option1,optSynctimer_);
 
@@ -472,7 +504,64 @@ void Foam::LCS::setLCSoptions()
 
     char option9[] = "CFL";
     cfd2lcs_set_param_c(option9, lcsCFL_);
-    Info<< "Finished setting LCS diagnostic options" << endl;
 }
 
+void Foam::LCS::createLCSMesh()
+{
+    //- designated lcs mesh
+    lcsMeshPtr_ = new fvMesh
+    (
+        IOobject
+        (
+            "LCS",
+            cfdMesh_.time().timeName(),
+            cfdMesh_.time(),
+            IOobject::MUST_READ
+        )
+    );
+
+    Info << "Created LCS Mesh" << endl;
+}
+
+Foam::volVectorField& Foam::LCS::lcsVelField()
+{
+    if(!lcsVelFieldPtr_){
+        lcsVelFieldPtr_ = new volVectorField
+        (
+            IOobject
+            (
+                "U",
+                cfdMesh_.time().timeName(),
+                *lcsMeshPtr_,
+                IOobject::NO_READ,
+                IOobject::NO_WRITE
+            ),
+            *lcsMeshPtr_,
+            dimensionedVector("zero", dimensionSet(0,1,-1,0,0), vector::zero)
+        );
+    }
+    return *lcsVelFieldPtr_;
+    
+}
+
+const Foam::meshToMesh& Foam::LCS::meshToMeshInterp()
+{
+    if (!meshToMeshPtr_)
+    {   
+        // TODO: make interpolation for inconsistent meshes possible
+        // for now only consistent meshes
+        HashTable<word> patchMap;
+        wordList cuttingPatches;
+
+        meshToMeshPtr_ = new meshToMesh
+        (
+            cfdMesh_,
+            *lcsMeshPtr_,
+            patchMap,
+            cuttingPatches
+        );
+    }
+    
+    return *meshToMeshPtr_;
+}
 // ************************************************************************* //
