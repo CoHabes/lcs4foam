@@ -1,6 +1,12 @@
 #!/bin/bash
 cd ${0%/*} || exit 1    # run from this directory
 
+# compile cfd2lcs library
+cd LCSFunctionObject/libcfd2lcs
+make FOR_OPENFOAM
+cd ../..
+
+# compile function object
 wmakeLnInclude LCSFunctionObject
 
 wmake libso LCSFunctionObject
