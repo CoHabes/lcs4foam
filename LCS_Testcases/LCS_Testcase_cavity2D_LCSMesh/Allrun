@@ -1,0 +1,14 @@
+#!/bin/sh
+# Source tutorial run functions
+. $WM_PROJECT_DIR/bin/tools/RunFunctions
+
+application="icoFoam"
+
+runApplication blockMesh
+runApplication -l log.blockMeshLCS blockMesh -region LCS
+
+runApplication decomposePar
+runApplication -l log.decomposeParLCS decomposePar -region LCS
+
+#runApplication $application
+mpirun -np 2 $application -parallel > log.$application

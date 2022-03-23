@@ -122,6 +122,7 @@ class LCS
         bool active_ = true;
 
         //- Indicator for first execution of function object
+        // Workaround because start() somehow does not get called
         bool firstExe_ = true;
 
         //- Number of grid points in local mesh
