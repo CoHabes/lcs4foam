@@ -65,6 +65,8 @@ SourceFiles
 #include "Switch.H"
 #include "fvMesh.H"
 #include "meshToMesh.H"
+#include "fvMeshSubset.H"
+#include "cellSet.H"
 
 
 // include cfd2lcs functionalities
@@ -103,6 +105,9 @@ class LCS
         //- Pointer to const mesh which is used for lcs computations
         fvMesh const* lcsMeshPtr_;
 
+        //- Pointer to subMesh of oversetMesh which is used for lcs computations
+        fvMeshSubset* lcsMeshSubset_;
+
         //- Pointer to mesh to mesh interpolator
         meshToMesh* meshToMeshPtr_;
 
@@ -113,10 +118,10 @@ class LCS
         const dictionary& controlDict_;
 
         //- global bounding box
-        const boundBox& globalBb_;
+        boundBox globalBb_;
 
         //- local bounding box
-        const boundBox localBb_;
+        boundBox localBb_;
 
         //- On/off switch
         bool active_ = true;
@@ -142,6 +147,12 @@ class LCS
         label id_bkwd_ = -1;
 
         // Read from dictionary
+            
+            //- If true use specified cellZone of oversetMesh for lcs computation
+            Switch isOverset_;
+
+            //- Name of cellZone in oversetMesh which should be used for the lcs computation
+            word lcsOversetRegion_;
 
             //- If true use cfd mesh for lcs computation, if false use extra lcs mesh
             Switch isStaticRectLinear_;
@@ -185,6 +196,7 @@ class LCS
             label optAuxGrid_;
 
     // Private Member Functions
+        void getBoundBoxes();
         void getCellCenterCoords();
         void getVelocityField();
         void getNumberOfCellsInDirection();
@@ -192,6 +204,7 @@ class LCS
         void initializeLCSDiagnostics();
         void setLCSoptions();
         void createLCSMesh();
+        void createLCSSubsetMesh();
         
         //- demand driven mesh to mesh interpolator
         const meshToMesh& meshToMeshInterp();

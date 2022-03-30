@@ -1,0 +1,57 @@
+/*--------------------------------*- C++ -*----------------------------------*\
+| =========                 |                                                 |
+| \\      /  F ield         | foam-extend: Open Source CFD                    |
+|  \\    /   O peration     | Version:     4.1                                |
+|   \\  /    A nd           | Web:         http://www.foam-extend.org         |
+|    \\/     M anipulation  |                                                 |
+\*---------------------------------------------------------------------------*/
+FoamFile
+{
+    version     2.0;
+    format      ascii;
+    class       dictionary;
+    object      decomposeParDict;
+}
+// * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * //
+
+numberOfSubdomains 2;
+
+method simple;
+
+simpleCoeffs
+{
+    n (2 1 1);
+    delta           10e-20;
+}
+
+hierarchicalCoeffs
+{
+    n               (3 1 1);
+    delta           10e-50;
+    order           xyz;
+}
+
+scotchCoeffs
+{
+    processorWeights 3(1 1 1);
+
+}
+
+metisCoeffs
+{
+    processorWeights 3(1 1 1);
+}
+
+manualCoeffs
+{
+    dataFile        "cellDecomposition";
+}
+
+distributed     no;
+
+roots
+(
+);
+
+
+// ************************************************************************* //

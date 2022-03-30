@@ -26,6 +26,8 @@ License
 #include "LCS.H"
 #include "dictionary.H"
 #include "meshToMesh.H"
+#include "fvMeshSubset.H"
+#include "cellSet.H"
 
 // * * * * * * * * * * * * * * Static Data Members * * * * * * * * * * * * * //
 
@@ -49,9 +51,7 @@ Foam::LCS::LCS
     cfdMesh_(refCast<const fvMesh>(obr)),
     meshToMeshPtr_(nullptr),
     lcsVelFieldPtr_(nullptr),
-    controlDict_(obr.time().controlDict()),
-    globalBb_(refCast<const fvMesh>(obr).bounds()),
-    localBb_(refCast<const fvMesh>(obr).points(), false)
+    controlDict_(obr.time().controlDict())
 {
     // Check if the available mesh is an fvMesh, otherwise deactivate
     if (!isA<fvMesh>(cfdMesh_))
@@ -94,11 +94,19 @@ bool Foam::LCS::start()
         if(isStaticRectLinear_)
         {
             lcsMeshPtr_ = &cfdMesh_;
+
+            if(isOverset_){
+                createLCSSubsetMesh();
+            }
+
         }else
         {
             // TODO: generate/read lcsmesh, generate meshToMesh interpolator
             createLCSMesh();
         }
+
+        // Compute local and global bounding boxes for lcs mesh
+        getBoundBoxes();
 
         // Compute number of grid points for THIS partition in x=i, y=j and z=k direction
         getNumberOfCellsInDirection();
@@ -141,11 +149,27 @@ void Foam::LCS::read(const dictionary& dict)
 {   
     if (active_)
     {
-        isStaticRectLinear_ = dict.lookupOrDefault<Switch>("isStaticRectLinear", false);
-        if(isStaticRectLinear_)
+        isOverset_ = dict.lookupOrDefault<Switch>("isOverset", false);
+        if(isOverset_)
+        {
+            lcsOversetRegion_ = word(dict.lookup("lcsOversetRegion"));
+            Info << "LCSFunctionObject: Using cellZone " << lcsOversetRegion_ 
+                 <<" in oversetMesh for lcs computations\n" << endl;
+        }
+
+        dict.lookup("isStaticRectLinear") >> isStaticRectLinear_;
+        if((!isStaticRectLinear_) && isOverset_)
+        {
+            FatalErrorIn
+            (
+                "Foam::LCS::read(const dictionary& dict)"
+            )   << "a non static rectlinear zellZone can not be used in the oversetMesh for lcs computation.\n" 
+                << "set isStaticRectLinear to true or do not use an oversetMesh"
+                << exit(FatalError);
+        }else if(isStaticRectLinear_ && !isOverset_)
         {
             Info << "LCSFunctionObject: Using cfd mesh for lcs computations\n" << endl;
-        }else
+        }else if(!isStaticRectLinear_ && !isOverset_)
         {
             Info << "LCSFunctionObject: Using desiganted lcs mesh for lcs computations\n" << endl;
         }
@@ -156,7 +180,7 @@ void Foam::LCS::read(const dictionary& dict)
         ftleBkwd_ = dict.lookupOrDefault<Switch>("ftleBkwd", false);
 
         // check if any of the diagnostics should be executed
-        if(!ftleFwd_ & !ftleBkwd_){
+        if(!ftleFwd_ && !ftleBkwd_){
         active_ = false;
         WarningIn
         (
@@ -321,10 +345,27 @@ void Foam::LCS::write()
 {
 }
 
+void Foam::LCS::getBoundBoxes()
+{   
+    if(!isOverset_){
+        globalBb_ = lcsMeshPtr_->bounds();
+        localBb_ = boundBox(lcsMeshPtr_->points(), false);
+    }else{
+        // make subsetMesh for boundingBox calculation of lcsOversetRegion
+        globalBb_ = boundBox(lcsMeshSubset_->subMesh().points(), true);
+        localBb_ = boundBox(lcsMeshSubset_->subMesh().points(), false);
+    }
+
+    Info << "global bounding box:" << globalBb_ << endl;
+    Pout<< "local bounding box:" << localBb_ << endl;
+}
+
 void Foam::LCS::getCellCenterCoords()
 {
     // Cell centroid coordinates
-    const vectorField& centres = lcsMeshPtr_->C().internalField();
+    const vectorField& centres = (!isOverset_) ? 
+                                 lcsMeshPtr_->C().internalField() : 
+                                 lcsMeshSubset_->subMesh().C().internalField();
 
     // Loop over cell centres
     forAll (centres, celli)
@@ -335,12 +376,16 @@ void Foam::LCS::getCellCenterCoords()
         //set all cells als internal
         flag_[celli] = LCS_INTERNAL;
     }
+    
+    const polyBoundaryMesh& boundaryMesh = (!isOverset_) ? 
+                                           lcsMeshPtr_->boundaryMesh(): 
+                                           lcsMeshSubset_->subMesh().boundaryMesh();
 
     // Loop over all boundary patches
-    forAll (lcsMeshPtr_->boundaryMesh(), patchi)
+    forAll (boundaryMesh, patchi)
     {
         // Current poly patch
-        const polyPatch& pp = lcsMeshPtr_->boundaryMesh()[patchi];
+        const polyPatch& pp = boundaryMesh[patchi];
         // const word& patchName = pp.name();
 
         // Velocity field
@@ -377,10 +422,10 @@ void Foam::LCS::getCellCenterCoords()
         }
         
         // Loop over all faces of boundary patch
-        forAll(lcsMeshPtr_->boundary()[patchi], facei)
+        forAll(boundaryMesh[patchi], facei)
         {
             // Boundary cell index
-            const label& bCell = lcsMeshPtr_->boundary()[patchi].faceCells()[facei];
+            const label& bCell = boundaryMesh[patchi].faceCells()[facei];
             if(boundaryType != LCS_INTERNAL && flag_[bCell] != LCS_WALL && flag_[bCell] != LCS_SLIP)
             {
                 flag_[bCell] = boundaryType;
@@ -400,7 +445,13 @@ void Foam::LCS::getVelocityField()
         // pointer to const velocity field that is used for lcs computations
         vectorField const* uLcsInPtr;
 
-        if(!isStaticRectLinear_)
+        if (isOverset_)
+        {   
+            // map velocity field from global overSetMesh to subsetMesh 
+            // which is used for the lcs computation
+            uLcsInPtr = &lcsMeshSubset_->interpolate(uCfd)().internalField();
+
+        }else if(!isStaticRectLinear_)
         {   
             volVectorField& uLCS = lcsVelField();
 
@@ -446,7 +497,6 @@ void Foam::LCS::getNumberOfCellsInDirection()
     n_[1] = round(globalN_[1] * (localBb_.max().component(1) - localBb_.min().component(1)) / (globalBb_.max().component(1) - globalBb_.min().component(1)));
     n_[2] = round(globalN_[2] * (localBb_.max().component(2) - localBb_.min().component(2)) / (globalBb_.max().component(2) - globalBb_.min().component(2)));
 
-    Pout<< "local bounding box:" << localBb_ << endl;
     Pout<< "Number of cells in x:" << n_[0] << " y:" << n_[1] << " z:" << n_[2]  << endl;
 
 }
@@ -563,5 +613,23 @@ const Foam::meshToMesh& Foam::LCS::meshToMeshInterp()
     }
     
     return *meshToMeshPtr_;
+}
+
+void Foam::LCS::createLCSSubsetMesh()
+{
+    lcsMeshSubset_ = new fvMeshSubset
+        (
+            IOobject
+            (
+                "set",
+                cfdMesh_.time().timeName(),
+                *lcsMeshPtr_,
+                IOobject::NO_READ,
+                IOobject::NO_WRITE
+            ),
+            *lcsMeshPtr_
+        );
+    cellSet lcsRegionSet(*lcsMeshPtr_, lcsOversetRegion_);
+    lcsMeshSubset_->setLargeCellSubset(lcsRegionSet, -1, true);
 }
 // ************************************************************************* //
