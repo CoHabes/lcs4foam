@@ -21,55 +21,55 @@ FoamFile
     {
         type            overset;
         nFaces          0;
-        startFace       41544;
+        startFace       75524;
     }
     in
     {
         type            patch;
-        nFaces          82;
-        startFace       41544;
+        nFaces          80;
+        startFace       75524;
     }
     out
     {
         type            patch;
-        nFaces          82;
-        startFace       41626;
+        nFaces          80;
+        startFace       75604;
     }
     top
     {
-        type            wall;
-        nFaces          82;
-        startFace       41708;
+        type            symmetryPlane;
+        nFaces          100;
+        startFace       75684;
     }
     bottom
     {
-        type            wall;
-        nFaces          82;
-        startFace       41790;
+        type            symmetryPlane;
+        nFaces          100;
+        startFace       75784;
     }
     cylinder
     {
         type            wall;
-        nFaces          120;
-        startFace       41872;
+        nFaces          228;
+        startFace       75884;
     }
     outerCylinder
     {
         type            patch;
-        nFaces          120;
-        startFace       41992;
+        nFaces          228;
+        startFace       76112;
     }
     refine
     {
         type            patch;
-        nFaces          280;
-        startFace       42112;
+        nFaces          456;
+        startFace       76340;
     }
     frontAndBack
     {
         type            empty;
-        nFaces          41968;
-        startFace       42392;
+        nFaces          76160;
+        startFace       76796;
     }
 )
 

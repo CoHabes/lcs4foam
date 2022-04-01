@@ -46,11 +46,13 @@ boundaryField
     }
     top
     {
-        type zeroGradient;
+        type            symmetryPlane;
+        value           uniform 0;
     }
     bottom
     {
-        type zeroGradient;
+        type            symmetryPlane;
+        value           uniform 0;
     }
     cylinder
     {

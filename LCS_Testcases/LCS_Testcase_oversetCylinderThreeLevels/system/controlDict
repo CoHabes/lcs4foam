@@ -117,7 +117,7 @@ functions
         isStaticRectLinear true;
 
         // Numer of cells in x, y and z direction (must correspond with mesh which is used for the lcs compuatations)
-        n (70 70 1);
+        n (148 80 1);
 
         // Velocity field name
         velocityName "U";
@@ -141,7 +141,7 @@ functions
         // - 0 LCS diagnostic will be computed on same grid (is default)
         // - 1, 2, ... Diagnostic will be computed on a grid with resolution times more grid points
         // - -1, -2, ... Diagnostic will be computed on a grid with resolution times less grid points
-        resolution 0;
+        resolution 2;
 
         lcsCFL          0.5;
 

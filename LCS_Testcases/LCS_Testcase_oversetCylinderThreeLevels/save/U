@@ -44,11 +44,13 @@ boundaryField
     }
     top
     {
-        type            slip;
+        type            symmetryPlane;
+        value           uniform (1 0 0);
     }
     bottom
     {
-        type            slip;
+        type            symmetryPlane;
+        value           uniform (1 0 0);
     }
     cylinder
     {
