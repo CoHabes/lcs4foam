@@ -28,6 +28,13 @@ License
 #include "meshToMesh.H"
 #include "fvMeshSubset.H"
 #include "cellSet.H"
+#include "typeInfo.H"
+#include "wallPolyPatch.H"
+#include "emptyPolyPatch.H"
+#include "symmetryPolyPatch.H"
+#include "wedgePolyPatch.H"
+#include "cyclicPolyPatch.H"
+#include "processorPolyPatch.H"
 
 // * * * * * * * * * * * * * * Static Data Members * * * * * * * * * * * * * //
 
@@ -49,24 +56,39 @@ Foam::LCS::LCS
 :
     name_(name),
     cfdMesh_(refCast<const fvMesh>(obr)),
+    lcsMeshPtr_(),
+    lcsMeshSubset_(),
     meshToMeshPtr_(nullptr),
     lcsVelFieldPtr_(nullptr),
-    controlDict_(obr.time().controlDict())
+    controlDict_(obr.time().controlDict()),
+    globalBb_(),
+    localBb_(),
+    active_(true),
+    firstExe_(true),
+    offset_(),
+    x_(nullptr), y_(nullptr), z_(nullptr), u_(nullptr), v_(nullptr), w_(nullptr),
+    flag_(nullptr),
+    id_fwd_(-1),
+    id_bkwd_(-1),
+    isOverset_(),
+    lcsOversetRegion_(),
+    isStaticRectLinear_(),
+    globalN_(),
+    uName_(),
+    res_(),
+    ftleFwd_(),
+    ftleBkwd_(),
+    t0_(),
+    T_(),
+    H_(),
+    lcsOpts_()
 {
     // Check if the available mesh is an fvMesh, otherwise deactivate
     if (!isA<fvMesh>(cfdMesh_))
     {
         active_ = false;
-        WarningIn
-        (
-            "LCS::LCS"
-            "("
-                "const word&, "
-                "const objectRegistry&, "
-                "const dictionary&, "
-                "const bool"
-            ")"
-        )   << "No fvMesh available, deactivating " << name_ << nl
+        WarningInFunction
+            << "No fvMesh available, deactivating " << name_ << nl
             << endl;
     }
 
@@ -93,7 +115,7 @@ bool Foam::LCS::start()
         // Set lcs mesh pointer
         if(isStaticRectLinear_)
         {
-            lcsMeshPtr_ = &cfdMesh_;
+            lcsMeshPtr_.set(&cfdMesh_);
 
             if(isOverset_){
                 createLCSSubsetMesh();
@@ -134,7 +156,7 @@ bool Foam::LCS::start()
         initializeLCSDiagnostics();
 
         // Set CFD2LCS options/parameters
-        setLCSoptions();
+        lcsOpts_.setLCSoptions();
 
         // start() has been called
         firstExe_ = false;
@@ -160,10 +182,8 @@ void Foam::LCS::read(const dictionary& dict)
         dict.lookup("isStaticRectLinear") >> isStaticRectLinear_;
         if((!isStaticRectLinear_) && isOverset_)
         {
-            FatalErrorIn
-            (
-                "Foam::LCS::read(const dictionary& dict)"
-            )   << "a non static rectlinear zellZone can not be used in the oversetMesh for lcs computation.\n" 
+            FatalErrorInFunction
+                << "a non static rectlinear zellZone can not be used in the oversetMesh for lcs computation.\n" 
                 << "set isStaticRectLinear to true or do not use an oversetMesh"
                 << exit(FatalError);
         }else if(isStaticRectLinear_ && !isOverset_)
@@ -181,15 +201,10 @@ void Foam::LCS::read(const dictionary& dict)
 
         // check if any of the diagnostics should be executed
         if(!ftleFwd_ && !ftleBkwd_){
-        active_ = false;
-        WarningIn
-        (
-            "LCS::read"
-            "("
-                "const dictionary& dict"
-            ")"
-        )   << "No FTLE evaluation activated, deactivating " << name_ << nl
-            << endl;
+            active_ = false;
+            WarningInFunction
+                << "No FTLE evaluation activated, deactivating " << name_ << nl
+                << endl;
         }
 
         res_ = dict.lookupOrDefault<label>("resolution", 0);
@@ -207,13 +222,8 @@ void Foam::LCS::read(const dictionary& dict)
         }else if(writeControl == "timeStep"){
             Switch adjustTimeStep = controlDict_.lookupOrDefault<Switch>("adjustTimeStep", false);
             if(adjustTimeStep){
-                WarningIn
-                (
-                    "LCS::read"
-                    "("
-                        "const dictionary& dict"
-                    ")"
-                )   << "Adjustable simulation time steps with timeStep writeControl is not support with LCS diagnostics." << nl 
+                WarningInFunction
+                    << "Adjustable simulation time steps with timeStep writeControl is not support with LCS diagnostics." << nl 
                     << "If no lcsWriteInterval is provided lcsWriteTimeInterval is set to 1s"<< name_ << nl
                     << endl;
             }else{
@@ -222,13 +232,8 @@ void Foam::LCS::read(const dictionary& dict)
                 simulationWriteTimeInterval = simulationDeltaT * simulationWriteStepInterval;
             }
         }else{
-            WarningIn
-            (
-                "LCS::read"
-                "("
-                    "const dictionary& dict"
-                ")"
-            )   << "cpuTime and clockTime writeControl is not support with LCS diagnostics." << nl 
+            WarningInFunction
+                << "cpuTime and clockTime writeControl is not support with LCS diagnostics." << nl 
                 << "If no lcsWriteInterval is provided lcsWriteTimeInterval is set to 1s"<< name_ << nl
                 << endl;
         }
@@ -245,19 +250,14 @@ void Foam::LCS::read(const dictionary& dict)
         word integrator = dict.lookup("integrator", "rk2");
         auto searchIntegrator = lcsIntegratorMap.find(integrator);
         if (searchIntegrator != lcsIntegratorMap.end()) {
-            lcsIntegrator_ = searchIntegrator->second;
+            lcsOpts_.integrator = searchIntegrator->second;
         } else {
-            WarningIn
-            (
-                "LCS::read"
-                "("
-                    "const dictionary& dict"
-                ")"
-            )   << "LCS integrator " << integrator << "is no valid integration scheme for lcs diagnostic" << nl 
+            WarningInFunction
+                << "LCS integrator " << integrator << "is no valid integration scheme for lcs diagnostic" << nl 
                 << "valid types are: euler, trapezodial, rk2, rk3, rk4. " << nl 
                 << "Setting LCS integrator to rk2."<< name_ << nl
                 << endl;
-            lcsIntegrator_ = RK2;
+            lcsOpts_.integrator = RK2;
         }
 
 
@@ -273,38 +273,33 @@ void Foam::LCS::read(const dictionary& dict)
         word interpolator = dict.lookupOrDefault<word>("interpolator", "linear");
         auto searchInterpolator = lcsInterpolatorMap.find(interpolator);
         if (searchInterpolator != lcsInterpolatorMap.end()) {
-            lcsInterpolator_ = searchInterpolator->second;
+            lcsOpts_.interpolator = searchInterpolator->second;
         } else {
-            WarningIn
-            (
-                "LCS::read"
-                "("
-                    "const dictionary& dict"
-                ")"
-            )   << "LCS interpolator " << interpolator << "is no valid interpolation scheme for lcs diagnostic." << nl 
+            WarningInFunction
+                << "LCS interpolator " << interpolator << "is no valid interpolation scheme for lcs diagnostic." << nl 
                 << "Valid types are: nearestNBR, linear, quadratic, cubic, tse, tseLimit. " << nl 
                 << "Setting LCS interpolator to linear."<< name_ << nl
                 << endl;
-            lcsInterpolator_ = LINEAR;
+            lcsOpts_.interpolator = LINEAR;
         }
 
         // read lcs CFl number
-        lcsCFL_ = dict.lookupOrDefault<scalar>("lcsCFL", 0.5f);
+        lcsOpts_.CFL = dict.lookupOrDefault<scalar>("lcsCFL", 0.5f);
         
         // read lcs options
         const dictionary& lcsOptionsDict = dict.subDict("lcsOptions");
         Switch synctimer = lcsOptionsDict.lookupOrDefault<Switch>("synctimer", false);
-        optSynctimer_ = (synctimer) ? LCS_TRUE : LCS_FALSE;
+        lcsOpts_.synctimer = (synctimer) ? LCS_TRUE : LCS_FALSE;
         Switch debug = lcsOptionsDict.lookupOrDefault<Switch>("debug", false);
-        optDebug_ = (debug) ? LCS_TRUE : LCS_FALSE;
+        lcsOpts_.debug = (debug) ? LCS_TRUE : LCS_FALSE;
         Switch writeFlowmap = lcsOptionsDict.lookupOrDefault<Switch>("writeFlowmap", false);
-        optWriteFlowmap_ = (writeFlowmap) ? LCS_TRUE : LCS_FALSE;
+        lcsOpts_.writeFlowmap = (writeFlowmap) ? LCS_TRUE : LCS_FALSE;
         Switch writeBCFalgs = lcsOptionsDict.lookupOrDefault<Switch>("writeBCFlags", false);
-        optWriteBCFalgs_ = (writeBCFalgs) ? LCS_TRUE : LCS_FALSE;
+        lcsOpts_.writeBCFalgs = (writeBCFalgs) ? LCS_TRUE : LCS_FALSE;
         Switch incompressible = lcsOptionsDict.lookupOrDefault<Switch>("incompressible", false);
-        optIncompressible_ = (incompressible) ? LCS_TRUE : LCS_FALSE;
+        lcsOpts_.incompressible = (incompressible) ? LCS_TRUE : LCS_FALSE;
         Switch auxGrid = lcsOptionsDict.lookupOrDefault<Switch>("auxGrid", false);
-        optAuxGrid_ = (auxGrid) ? LCS_TRUE : LCS_FALSE;
+        lcsOpts_.auxGrid = (auxGrid) ? LCS_TRUE : LCS_FALSE;
 
     }
 }
@@ -393,9 +388,9 @@ void Foam::LCS::getCellCenterCoords()
         // const fvPatchVectorField& U_p = U.boundaryField()[patchi];
 
         // determine boundary type
-        label boundaryType = LCS_INTERNAL;
+        label boundaryType = LCS_OUTFLOW;
         
-        if (pp.type() == "wall")
+        if (isA<wallPolyPatch>(pp))
         {
             boundaryType = LCS_SLIP;
             // if (U_p.type() == "slip")
@@ -405,20 +400,16 @@ void Foam::LCS::getCellCenterCoords()
             // {
             //     boundaryType = LCS_WALL;
             // }
-        }else if (pp.type() == "empty" || pp.type() == "symmetryPlane" || pp.type() == "wedge" || pp.type() == "cyclic" || pp.type() == "processor")
+        } else if
+        (
+            isA<emptyPolyPatch>(pp)
+            || isA<symmetryPolyPatch>(pp)
+            || isA<wedgePolyPatch>(pp)
+            || isA<cyclicPolyPatch>(pp)
+            || isA<processorPolyPatch>(pp)
+        )
         {
             boundaryType = LCS_INTERNAL;
-        }else
-        {
-            boundaryType = LCS_OUTFLOW;
-            // TODO: Use U boundary Field to determine boundary field type or use regex for patchnames
-            // if (patchName == "inlet" || patchName == "Inlet")
-            // {
-            //     boundaryType = LCS_INFLOW;
-            // }else if (patchName == "outlet" || patchName == "Outlet")
-            // {
-            //     boundaryType = LCS_OUTFLOW;
-            // }
         }
         
         // Loop over all faces of boundary patch
@@ -481,10 +472,8 @@ void Foam::LCS::getVelocityField()
             }
         }
     }else{
-        FatalErrorIn
-        (
-            "Foam::LCS::getVelocityField()"
-        )   << "Velocity field with name " << uName_ << " not found"
+        FatalErrorInFunction
+            << "Velocity field with name " << uName_ << " not found"
             << exit(FatalError);
     }
 }
@@ -526,47 +515,50 @@ void Foam::LCS::initializeLCSDiagnostics()
     } 
 }
 
-void Foam::LCS::setLCSoptions()
+void Foam::LCS::lcsOpts::setLCSoptions()
 {
     char option1[] = "SYNCTIMER";
-    cfd2lcs_set_option_c(option1,optSynctimer_);
+    cfd2lcs_set_option_c(option1, synctimer);
 
     char option2[] = "DEBUG";
-    cfd2lcs_set_option_c(option2,optDebug_);
+    cfd2lcs_set_option_c(option2, debug);
 
     char option3[] = "WRITE_FLOWMAP";
-    cfd2lcs_set_option_c(option3,optWriteFlowmap_);
+    cfd2lcs_set_option_c(option3, writeFlowmap);
  
     char option4[] = "WRITE_BCFLAG";
-    cfd2lcs_set_option_c(option4,optWriteBCFalgs_);
+    cfd2lcs_set_option_c(option4, writeBCFalgs);
 
     char option5[] = "INCOMPRESSIBLE";
-    cfd2lcs_set_option_c(option5,optIncompressible_);
+    cfd2lcs_set_option_c(option5, incompressible);
 
     char option6[] = "AUX_GRID";
-    cfd2lcs_set_option_c(option6,optAuxGrid_);
+   cfd2lcs_set_option_c(option6, auxGrid);
 
     char option7[] = "INTEGRATOR";
-    cfd2lcs_set_option_c(option7,lcsIntegrator_);
+    cfd2lcs_set_option_c(option7, integrator);
 
     char option8[] = "INTERPOLATOR";
-    cfd2lcs_set_option_c(option8,lcsInterpolator_);
+    cfd2lcs_set_option_c(option8, interpolator);
 
     char option9[] = "CFL";
-    cfd2lcs_set_param_c(option9, lcsCFL_);
+    cfd2lcs_set_param_c(option9, CFL);
 }
 
 void Foam::LCS::createLCSMesh()
 {
     //- designated lcs mesh
-    lcsMeshPtr_ = new fvMesh
+    lcsMeshPtr_.set
     (
-        IOobject
+        new fvMesh
         (
-            "LCS",
-            cfdMesh_.time().timeName(),
-            cfdMesh_.time(),
-            IOobject::MUST_READ
+            IOobject
+            (
+                "LCS",
+                cfdMesh_.time().timeName(),
+                cfdMesh_.time(),
+                IOobject::MUST_READ
+            )
         )
     );
 
@@ -582,11 +574,11 @@ Foam::volVectorField& Foam::LCS::lcsVelField()
             (
                 "U",
                 cfdMesh_.time().timeName(),
-                *lcsMeshPtr_,
+                lcsMeshPtr_(),
                 IOobject::NO_READ,
                 IOobject::NO_WRITE
             ),
-            *lcsMeshPtr_,
+            lcsMeshPtr_(),
             dimensionedVector("zero", dimensionSet(0,1,-1,0,0), vector::zero)
         );
     }
@@ -606,7 +598,7 @@ const Foam::meshToMesh& Foam::LCS::meshToMeshInterp()
         meshToMeshPtr_ = new meshToMesh
         (
             cfdMesh_,
-            *lcsMeshPtr_,
+            lcsMeshPtr_(),
             patchMap,
             cuttingPatches
         );
@@ -623,13 +615,13 @@ void Foam::LCS::createLCSSubsetMesh()
             (
                 "set",
                 cfdMesh_.time().timeName(),
-                *lcsMeshPtr_,
+                lcsMeshPtr_(),
                 IOobject::NO_READ,
                 IOobject::NO_WRITE
             ),
-            *lcsMeshPtr_
+            lcsMeshPtr_()
         );
-    cellSet lcsRegionSet(*lcsMeshPtr_, lcsOversetRegion_);
+    cellSet lcsRegionSet(lcsMeshPtr_(), lcsOversetRegion_);
     lcsMeshSubset_->setLargeCellSubset(lcsRegionSet, -1, true);
 }
 // ************************************************************************* //
