@@ -60,6 +60,7 @@ SourceFiles
 #ifndef LCS_H
 #define LCS_H
 
+#include "autoPtr.H"
 #include "volFields.H"
 #include "runTimeSelectionTables.H"
 #include "Switch.H"
@@ -103,7 +104,7 @@ class LCS
         const fvMesh& cfdMesh_;
 
         //- Pointer to const mesh which is used for lcs computations
-        fvMesh const* lcsMeshPtr_;
+        autoPtr<const fvMesh> lcsMeshPtr_;
 
         //- Pointer to subMesh of oversetMesh which is used for lcs computations
         fvMeshSubset* lcsMeshSubset_;
@@ -124,11 +125,11 @@ class LCS
         boundBox localBb_;
 
         //- On/off switch
-        bool active_ = true;
+        bool active_;
 
         //- Indicator for first execution of function object
         // Workaround because start() somehow does not get called
-        bool firstExe_ = true;
+        bool firstExe_;
 
         //- Number of grid points in local mesh
         labelList n_;
@@ -143,8 +144,8 @@ class LCS
         label *flag_;
 
         //- LCS diagnostics ids
-        label id_fwd_ = -1;
-        label id_bkwd_ = -1;
+        label id_fwd_;
+        label id_bkwd_;
 
         // Read from dictionary
             
@@ -178,22 +179,24 @@ class LCS
             //- LCS output time interval 
             scalar H_;
 
-            //- LCS time integration scheme
-            label lcsIntegrator_;
-
-            //- LCS interpolation scheme
-            label lcsInterpolator_;
-
-            //- LCS CFL number 
-            scalar lcsCFL_;
-
             //- LCS options
-            label optSynctimer_;
-            label optDebug_;
-            label optWriteFlowmap_;
-            label optWriteBCFalgs_;
-            label optIncompressible_;
-            label optAuxGrid_;
+            struct lcsOpts {
+                label synctimer;
+                label debug;
+                label writeFlowmap;
+                label writeBCFalgs;
+                label incompressible;
+                label auxGrid;
+                //- LCS time integration scheme
+                label integrator;
+                //- LCS interpolation scheme
+                label interpolator;
+                //- LCS CFL number 
+                scalar CFL;
+
+                // Member function to set options
+                void setLCSoptions();  
+            } lcsOpts_;
 
     // Private Member Functions
         void getBoundBoxes();
@@ -202,7 +205,6 @@ class LCS
         void getNumberOfCellsInDirection();
         void getOffset();
         void initializeLCSDiagnostics();
-        void setLCSoptions();
         void createLCSMesh();
         void createLCSSubsetMesh();
         
