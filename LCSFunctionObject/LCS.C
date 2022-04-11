@@ -56,8 +56,8 @@ Foam::LCS::LCS
 :
     name_(name),
     cfdMesh_(refCast<const fvMesh>(obr)),
-    lcsMeshPtr_(),
-    lcsMeshSubset_(),
+    lcsMeshPtr_(nullptr),
+    lcsMeshSubset_(nullptr),
     meshToMeshPtr_(nullptr),
     lcsVelFieldPtr_(nullptr),
     controlDict_(obr.time().controlDict()),
@@ -223,7 +223,8 @@ void Foam::LCS::read(const dictionary& dict)
             Switch adjustTimeStep = controlDict_.lookupOrDefault<Switch>("adjustTimeStep", false);
             if(adjustTimeStep){
                 WarningInFunction
-                    << "Adjustable simulation time steps with timeStep writeControl is not support with LCS diagnostics." << nl 
+                    << "Adjustable simulation time steps with "
+                    << "timeStep writeControl is not support with LCS diagnostics." << nl 
                     << "If no lcsWriteInterval is provided lcsWriteTimeInterval is set to 1s"<< name_ << nl
                     << endl;
             }else{
@@ -276,7 +277,8 @@ void Foam::LCS::read(const dictionary& dict)
             lcsOpts_.interpolator = searchInterpolator->second;
         } else {
             WarningInFunction
-                << "LCS interpolator " << interpolator << "is no valid interpolation scheme for lcs diagnostic." << nl 
+                << "LCS interpolator " << interpolator 
+                << "is no valid interpolation scheme for lcs diagnostic." << nl 
                 << "Valid types are: nearestNBR, linear, quadratic, cubic, tse, tseLimit. " << nl 
                 << "Setting LCS interpolator to linear."<< name_ << nl
                 << endl;
@@ -343,12 +345,12 @@ void Foam::LCS::write()
 void Foam::LCS::getBoundBoxes()
 {   
     if(!isOverset_){
-        globalBb_ = lcsMeshPtr_->bounds();
-        localBb_ = boundBox(lcsMeshPtr_->points(), false);
+        globalBb_ = lcsMeshPtr_().bounds();
+        localBb_ = boundBox(lcsMeshPtr_().points(), false);
     }else{
         // make subsetMesh for boundingBox calculation of lcsOversetRegion
-        globalBb_ = boundBox(lcsMeshSubset_->subMesh().points(), true);
-        localBb_ = boundBox(lcsMeshSubset_->subMesh().points(), false);
+        globalBb_ = boundBox(lcsMeshSubset_().subMesh().points(), true);
+        localBb_ = boundBox(lcsMeshSubset_().subMesh().points(), false);
     }
 
     Info << "global bounding box:" << globalBb_ << endl;
@@ -359,8 +361,8 @@ void Foam::LCS::getCellCenterCoords()
 {
     // Cell centroid coordinates
     const vectorField& centres = (!isOverset_) ? 
-                                 lcsMeshPtr_->C().internalField() : 
-                                 lcsMeshSubset_->subMesh().C().internalField();
+                                 lcsMeshPtr_().C().internalField() : 
+                                 lcsMeshSubset_().subMesh().C().internalField();
 
     // Loop over cell centres
     forAll (centres, celli)
@@ -373,8 +375,8 @@ void Foam::LCS::getCellCenterCoords()
     }
     
     const polyBoundaryMesh& boundaryMesh = (!isOverset_) ? 
-                                           lcsMeshPtr_->boundaryMesh(): 
-                                           lcsMeshSubset_->subMesh().boundaryMesh();
+                                           lcsMeshPtr_().boundaryMesh(): 
+                                           lcsMeshSubset_().subMesh().boundaryMesh();
 
     // Loop over all boundary patches
     forAll (boundaryMesh, patchi)
@@ -384,7 +386,7 @@ void Foam::LCS::getCellCenterCoords()
         // const word& patchName = pp.name();
 
         // Velocity field
-        // const volVectorField& U = lcsMeshPtr_->lookupObject<volVectorField>(uName_);
+        // const volVectorField& U = lcsMeshPtr_().lookupObject<volVectorField>(uName_);
         // const fvPatchVectorField& U_p = U.boundaryField()[patchi];
 
         // determine boundary type
@@ -434,13 +436,16 @@ void Foam::LCS::getVelocityField()
         const volVectorField& uCfd = cfdMesh_.lookupObject<volVectorField>(uName_);
 
         // pointer to const velocity field that is used for lcs computations
-        vectorField const* uLcsInPtr;
+        autoPtr<const vectorField> uLcsInPtr;
 
         if (isOverset_)
         {   
             // map velocity field from global overSetMesh to subsetMesh 
             // which is used for the lcs computation
-            uLcsInPtr = &lcsMeshSubset_->interpolate(uCfd)().internalField();
+            uLcsInPtr.set
+            (
+                &lcsMeshSubset_().interpolate(uCfd)().internalField()
+            );
 
         }else if(!isStaticRectLinear_)
         {   
@@ -454,16 +459,22 @@ void Foam::LCS::getVelocityField()
                 meshToMesh::INTERPOLATE
             );
 
-            uLcsInPtr = &uLCS.internalField();
+            uLcsInPtr.set
+            (
+                &uLCS.internalField()
+            );
         }else
         {
-            uLcsInPtr = &uCfd.internalField();
+            uLcsInPtr.set
+            (
+                &uCfd.internalField()
+            );
         }
 
         // store velocity field in ordered array for each velocity component
-        if (!uLcsInPtr->empty())
+        if (!uLcsInPtr().empty())
         {
-            const vectorField uLcsIn = *uLcsInPtr;
+            const vectorField& uLcsIn = uLcsInPtr();
             forAll (uLcsIn, celli)
             {
                 u_[celli] = uLcsIn[celli].component(0);
@@ -482,9 +493,12 @@ void Foam::LCS::getNumberOfCellsInDirection()
 {
     n_.setSize(3);
     // Assuming that LCS mesh has constant cell size along each axis
-    n_[0] = round(globalN_[0] * (localBb_.max().component(0) - localBb_.min().component(0)) / (globalBb_.max().component(0) - globalBb_.min().component(0)));
-    n_[1] = round(globalN_[1] * (localBb_.max().component(1) - localBb_.min().component(1)) / (globalBb_.max().component(1) - globalBb_.min().component(1)));
-    n_[2] = round(globalN_[2] * (localBb_.max().component(2) - localBb_.min().component(2)) / (globalBb_.max().component(2) - globalBb_.min().component(2)));
+    n_[0] = round(globalN_[0] * (localBb_.max().component(0) - localBb_.min().component(0)) / 
+            (globalBb_.max().component(0) - globalBb_.min().component(0)));
+    n_[1] = round(globalN_[1] * (localBb_.max().component(1) - localBb_.min().component(1)) / 
+            (globalBb_.max().component(1) - globalBb_.min().component(1)));
+    n_[2] = round(globalN_[2] * (localBb_.max().component(2) - localBb_.min().component(2)) / 
+            (globalBb_.max().component(2) - globalBb_.min().component(2)));
 
     Pout<< "Number of cells in x:" << n_[0] << " y:" << n_[1] << " z:" << n_[2]  << endl;
 
@@ -494,9 +508,12 @@ void Foam::LCS::getOffset()
 {
     offset_.setSize(3);
     // Assuming that LCS mesh has constant cell size along each axis
-    offset_[0] = round(n_[0] * (localBb_.min().component(0) - globalBb_.min().component(0)) / (localBb_.max().component(0) - localBb_.min().component(0)));
-    offset_[1] = round(n_[1] * (localBb_.min().component(1) - globalBb_.min().component(1)) / (localBb_.max().component(1) - localBb_.min().component(1)));
-    offset_[2] = round(n_[2] * (localBb_.min().component(2) - globalBb_.min().component(2)) / (localBb_.max().component(2) - localBb_.min().component(2)));
+    offset_[0] = round(n_[0] * (localBb_.min().component(0) - globalBb_.min().component(0)) / 
+                 (localBb_.max().component(0) - localBb_.min().component(0)));
+    offset_[1] = round(n_[1] * (localBb_.min().component(1) - globalBb_.min().component(1)) / 
+                 (localBb_.max().component(1) - localBb_.min().component(1)));
+    offset_[2] = round(n_[2] * (localBb_.min().component(2) - globalBb_.min().component(2)) / 
+                 (localBb_.max().component(2) - localBb_.min().component(2)));
 
     Pout<< "Offset in x:" << offset_[0] << " y:" << offset_[1] << " z:" << offset_[2]  << endl;
 
@@ -567,49 +584,57 @@ void Foam::LCS::createLCSMesh()
 
 Foam::volVectorField& Foam::LCS::lcsVelField()
 {
-    if(!lcsVelFieldPtr_){
-        lcsVelFieldPtr_ = new volVectorField
+    if(!lcsVelFieldPtr_.empty()){
+        lcsVelFieldPtr_.set
         (
-            IOobject
+            new volVectorField
             (
-                "U",
-                cfdMesh_.time().timeName(),
+                IOobject
+                (
+                    "U",
+                    cfdMesh_.time().timeName(),
+                    lcsMeshPtr_(),
+                    IOobject::NO_READ,
+                    IOobject::NO_WRITE
+                ),
                 lcsMeshPtr_(),
-                IOobject::NO_READ,
-                IOobject::NO_WRITE
-            ),
-            lcsMeshPtr_(),
-            dimensionedVector("zero", dimensionSet(0,1,-1,0,0), vector::zero)
+                dimensionedVector("zero", dimensionSet(0,1,-1,0,0), vector::zero)
+            )
         );
     }
-    return *lcsVelFieldPtr_;
+    return lcsVelFieldPtr_();
     
 }
 
 const Foam::meshToMesh& Foam::LCS::meshToMeshInterp()
 {
-    if (!meshToMeshPtr_)
+    if (meshToMeshPtr_.empty())
     {   
         // TODO: make interpolation for inconsistent meshes possible
         // for now only consistent meshes
         HashTable<word> patchMap;
         wordList cuttingPatches;
 
-        meshToMeshPtr_ = new meshToMesh
+        meshToMeshPtr_.set
         (
-            cfdMesh_,
-            lcsMeshPtr_(),
-            patchMap,
-            cuttingPatches
+            new meshToMesh
+            (
+                cfdMesh_,
+                lcsMeshPtr_(),
+                patchMap,
+                cuttingPatches
+            )
         );
     }
     
-    return *meshToMeshPtr_;
+    return meshToMeshPtr_();
 }
 
 void Foam::LCS::createLCSSubsetMesh()
 {
-    lcsMeshSubset_ = new fvMeshSubset
+    lcsMeshSubset_.set
+    (
+        new fvMeshSubset
         (
             IOobject
             (
@@ -620,8 +645,9 @@ void Foam::LCS::createLCSSubsetMesh()
                 IOobject::NO_WRITE
             ),
             lcsMeshPtr_()
-        );
+        )
+    );
     cellSet lcsRegionSet(lcsMeshPtr_(), lcsOversetRegion_);
-    lcsMeshSubset_->setLargeCellSubset(lcsRegionSet, -1, true);
+    lcsMeshSubset_().setLargeCellSubset(lcsRegionSet, -1, true);
 }
 // ************************************************************************* //

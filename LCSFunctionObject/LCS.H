@@ -107,13 +107,13 @@ class LCS
         autoPtr<const fvMesh> lcsMeshPtr_;
 
         //- Pointer to subMesh of oversetMesh which is used for lcs computations
-        fvMeshSubset* lcsMeshSubset_;
+        autoPtr<fvMeshSubset> lcsMeshSubset_;
 
         //- Pointer to mesh to mesh interpolator
-        meshToMesh* meshToMeshPtr_;
+        autoPtr<meshToMesh> meshToMeshPtr_;
 
         //- Pointer to lcs deignated lcs velocity if needed 
-        volVectorField* lcsVelFieldPtr_;
+        autoPtr<volVectorField> lcsVelFieldPtr_;
 
         //- Refererence to controlDict
         const dictionary& controlDict_;
@@ -195,7 +195,7 @@ class LCS
                 scalar CFL;
 
                 // Member function to set options
-                void setLCSoptions();  
+                void setLCSoptions();
             } lcsOpts_;
 
     // Private Member Functions
