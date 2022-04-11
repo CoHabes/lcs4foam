@@ -78,7 +78,6 @@ Foam::LCS::LCS
     res_(),
     ftleFwd_(),
     ftleBkwd_(),
-    t0_(),
     T_(),
     H_(),
     lcsOpts_()
@@ -208,11 +207,7 @@ void Foam::LCS::read(const dictionary& dict)
         }
 
         res_ = dict.lookupOrDefault<label>("resolution", 0);
-        scalar simulationStartTime = readScalar(controlDict_.lookup("startTime"));
-        t0_ = dict.lookupOrDefault<scalar>("lcsStartTime", simulationStartTime);
-        scalar simulationEndTime = readScalar(controlDict_.lookup("endTime"));
-        scalar lcsEndTime = dict.lookupOrDefault<scalar>("lcsEndTime", simulationEndTime);
-        T_ = lcsEndTime - t0_;
+        T_ = readScalar(dict.lookup("lcsIntegrationTime"));
 
         // determine default value for LCS output time interval 
         scalar simulationWriteTimeInterval = 1.0f;
@@ -238,7 +233,7 @@ void Foam::LCS::read(const dictionary& dict)
                 << "If no lcsWriteInterval is provided lcsWriteTimeInterval is set to 1s"<< name_ << nl
                 << endl;
         }
-        H_ = dict.lookupOrDefault<scalar>("lcsWriteTimeIntervall", simulationWriteTimeInterval);
+        H_ = dict.lookupOrDefault<scalar>("lcsSubStepWriteIntervall", simulationWriteTimeInterval);
 
         // read integrator - Maybe better with selectionTables, but this works for now
         std::map<std::string, int> lcsIntegratorMap { 
