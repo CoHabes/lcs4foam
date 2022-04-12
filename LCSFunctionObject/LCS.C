@@ -431,16 +431,13 @@ void Foam::LCS::getVelocityField()
         const volVectorField& uCfd = cfdMesh_.lookupObject<volVectorField>(uName_);
 
         // pointer to const velocity field that is used for lcs computations
-        autoPtr<const vectorField> uLcsInPtr;
+        vectorField const* uLcsInPtr;
 
         if (isOverset_)
         {   
             // map velocity field from global overSetMesh to subsetMesh 
             // which is used for the lcs computation
-            uLcsInPtr.set
-            (
-                &lcsMeshSubset_().interpolate(uCfd)().internalField()
-            );
+            uLcsInPtr = &lcsMeshSubset_->interpolate(uCfd)().internalField();
 
         }else if(!isStaticRectLinear_)
         {   
@@ -454,22 +451,16 @@ void Foam::LCS::getVelocityField()
                 meshToMesh::INTERPOLATE
             );
 
-            uLcsInPtr.set
-            (
-                &uLCS.internalField()
-            );
+            uLcsInPtr = &uLCS.internalField();
         }else
         {
-            uLcsInPtr.set
-            (
-                &uCfd.internalField()
-            );
+            uLcsInPtr = &uCfd.internalField();
         }
 
         // store velocity field in ordered array for each velocity component
-        if (!uLcsInPtr().empty())
+        if (!uLcsInPtr->empty())
         {
-            const vectorField& uLcsIn = uLcsInPtr();
+            const vectorField uLcsIn = *uLcsInPtr;
             forAll (uLcsIn, celli)
             {
                 u_[celli] = uLcsIn[celli].component(0);
