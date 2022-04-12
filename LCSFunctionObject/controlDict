@@ -52,7 +52,7 @@ functions
         // Where to load it from (if not already in solver)
         functionObjectLibs ("libLCSFunctionObject.so");
 
-        // Specifies if an oversetMesh is used for the simulation  - (default: startTime of simulation)
+        // Specifies if an oversetMesh is used for the simulation
         isOverset false;
         // Name of cellZone in oversetMesh which is used for the lcs computation
         // (only needed if isOverset is true)
@@ -67,17 +67,14 @@ functions
         // Numer of cells in x, y and z direction (must correspond with mesh which is used for the lcs compuatations)
         n (20 20 1);
 
-        // Velocity field name
+        // Velocity field name - (default: "U")
         velocityName "U";
 
-        // Start time of LCS diagnostic - (default: startTime of simulation)
-        lcsStartTime 0;
+        // LCS integration time length
+        lcsIntegrationTime 10;
 
-        // End time of LCS diagnostic - (default: endTime of simulation)
-        lcsEndTime 0.5;
-
-        // LCS output interval in s
-        lcsWriteTimeIntervall 1;
+        // LCS output and flow map sub-step interval in s - (default: simulation write time intervall)
+        lcsSubStepWriteIntervall 1;
 
         // Switches for FTLE field evaluation 
         // - Forward time (repelling) FTLE field - (default: true/on)
@@ -88,13 +85,17 @@ functions
         // Specifies addition or removal of grid points for the diagnostic calculation
         // - 0 LCS diagnostic will be computed on same grid (is default)
         // - 1, 2, ... Diagnostic will be computed on a grid with resolution times more grid points
-        // - -1, -2, ... Diagnostic will be computed on a grid with resolution times less grid points
+        // - -1, -2, ... Diagnostic will be computed on a grid with resolution times less grid points - - (default: 0)
         resolution 0;
 
+        // Determines time step for flow-map integration - (default: 0.5)
         lcsCFL          0.5;
 
+        // Used flow-map time integration scheme - (default: rk2)
         integrator      rk3;
 
+        // Used interpolation scheme for velocity interpolation
+        // and flow map composition from sub-step flow maps - (default: linear)
         interpolator    linear;
         
         // LCS Options
