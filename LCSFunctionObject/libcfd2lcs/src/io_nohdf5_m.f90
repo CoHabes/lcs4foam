@@ -66,7 +66,7 @@ module io_m
             !-----
             findex = nint(time/lcs%h,8) !file index at current time
             !if(lcs%diagnostic == FTLE_FWD .or. lcs%diagnostic == LP_TRACER) then
-            if(lcs%diagnostic == FTLE_FWD) then
+            if(lcs%diagnostic == FTLE_FWD .or. lcs%diagnostic == FTLE_BKWD) then
                   findex = findex - nint(lcs%T/lcs%h,8) !File index at t=t0 for fwd time diagnostic
             endif
 
