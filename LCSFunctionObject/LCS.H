@@ -171,6 +171,12 @@ class LCS
             Switch ftleFwd_;
             Switch ftleBkwd_;
 
+            //- LCS start time
+            scalar t_start_;
+
+            //- LCS end time
+            scalar t_end_;
+
             //- LCS diagnostic integration time length
             scalar T_;
 

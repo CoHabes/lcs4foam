@@ -79,6 +79,8 @@ Foam::LCS::LCS
     res_(),
     ftleFwd_(),
     ftleBkwd_(),
+    t_start_(),
+    t_end_(),
     T_(),
     H_(),
     lcsOpts_()
@@ -107,6 +109,11 @@ Foam::LCS::~LCS()
     free(v_);
     free(w_);
     free(flag_);
+    
+    if(!Pstream::parRun())
+    {
+        MPI_Finalize();
+    } 
 }
 
 
@@ -223,6 +230,12 @@ void Foam::LCS::read(const dictionary& dict)
         }
 
         res_ = dict.lookupOrDefault<label>("resolution", 0);
+
+        scalar simulationStartTime = readScalar(controlDict_.lookup("startTime"));
+        t_start_ = dict.lookupOrDefault<scalar>("lcsStartTime", simulationStartTime);
+        scalar simulationEndTime = readScalar(controlDict_.lookup("endTime"));
+        t_end_ = dict.lookupOrDefault<scalar>("lcsEndTime", simulationEndTime);
+
         T_ = readScalar(dict.lookup("lcsIntegrationTime"));
 
         // determine default value for LCS output time interval 
@@ -323,10 +336,11 @@ void Foam::LCS::execute()
         start();
     }
 
-    if (active_)
+    scalar time = cfdMesh_.time().value();
+
+    if (active_ && time >= t_start_ && time <= t_end_)
     {   
         getVelocityField();
-        scalar time = cfdMesh_.time().value();
         cfd2lcs_update_c(n_.data(), u_, v_, w_ ,time);
     }
 }
@@ -336,11 +350,13 @@ void Foam::LCS::end()
     if (id_fwd_ != -1)
     {
         cfd2lcs_diagnostic_destroy_c(id_fwd_);
+        id_fwd_ = -1;
     }
     
     if (id_bkwd_ != -1)
     {
         cfd2lcs_diagnostic_destroy_c(id_bkwd_);
+        id_bkwd_ = -1;
     }
 }
 
