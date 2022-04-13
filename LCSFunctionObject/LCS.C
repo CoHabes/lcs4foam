@@ -35,6 +35,7 @@ License
 #include "wedgePolyPatch.H"
 #include "cyclicPolyPatch.H"
 #include "processorPolyPatch.H"
+#include <memory>
 
 // * * * * * * * * * * * * * * Static Data Members * * * * * * * * * * * * * //
 
@@ -98,7 +99,15 @@ Foam::LCS::LCS
 // * * * * * * * * * * * * * * * * Destructor  * * * * * * * * * * * * * * * //
 
 Foam::LCS::~LCS()
-{}
+{
+    free(x_);
+    free(y_);
+    free(z_);
+    free(u_);
+    free(v_);
+    free(w_);
+    free(flag_);
+}
 
 
 // * * * * * * * * * * * * * * * Member Functions  * * * * * * * * * * * * * //
@@ -426,20 +435,23 @@ void Foam::LCS::getCellCenterCoords()
 void Foam::LCS::getVelocityField()
 {
     Info << "get velocity field" << endl;
+    // pointer to const velocity field that is used for lcs computations
+    std::shared_ptr<const vectorField> uLcsInPtr;
+
     if (cfdMesh_.foundObject<volVectorField>(uName_))
     {   
         const volVectorField& uCfd = cfdMesh_.lookupObject<volVectorField>(uName_);
-
-        // pointer to const velocity field that is used for lcs computations
-        vectorField const* uLcsInPtr;
+        //uLcsInPtr.reset(&uCfd.internalField());
 
         if (isOverset_)
-        {   
+        {
             // map velocity field from global overSetMesh to subsetMesh 
             // which is used for the lcs computation
-            uLcsInPtr = &lcsMeshSubset_->interpolate(uCfd)().internalField();
+            uLcsInPtr.reset();
+            uLcsInPtr = std::make_shared<const vectorField>(lcsMeshSubset_->interpolate(uCfd)().internalField());
 
-        }else if(!isStaticRectLinear_)
+        }
+        else if(!isStaticRectLinear_)
         {   
             volVectorField& uLCS = lcsVelField();
 
@@ -451,16 +463,19 @@ void Foam::LCS::getVelocityField()
                 meshToMesh::INTERPOLATE
             );
 
-            uLcsInPtr = &uLCS.internalField();
-        }else
-        {
-            uLcsInPtr = &uCfd.internalField();
+            uLcsInPtr.reset();
+            uLcsInPtr = std::make_shared<const vectorField>(uLCS.internalField());
+        }
+        else {
+            const vectorField& uCfdi = uCfd.internalField();
+            uLcsInPtr.reset();
+            uLcsInPtr = std::make_shared<const vectorField>(uCfdi);
         }
 
         // store velocity field in ordered array for each velocity component
         if (!uLcsInPtr->empty())
         {
-            const vectorField uLcsIn = *uLcsInPtr;
+            const vectorField& uLcsIn = *uLcsInPtr;
             forAll (uLcsIn, celli)
             {
                 u_[celli] = uLcsIn[celli].component(0);
@@ -469,8 +484,10 @@ void Foam::LCS::getVelocityField()
             }
         }
     }else{
-        FatalErrorInFunction
-            << "Velocity field with name " << uName_ << " not found"
+        FatalErrorIn
+        (
+            "Foam::LCS::getVelocityField()"
+        )   << "Velocity field with name " << uName_ << " not found"
             << exit(FatalError);
     }
 }
@@ -570,7 +587,7 @@ void Foam::LCS::createLCSMesh()
 
 Foam::volVectorField& Foam::LCS::lcsVelField()
 {
-    if(!lcsVelFieldPtr_.empty()){
+    if(lcsVelFieldPtr_.empty()){
         lcsVelFieldPtr_.set
         (
             new volVectorField
