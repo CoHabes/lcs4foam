@@ -102,13 +102,14 @@ Foam::LCS::LCS
 
 Foam::LCS::~LCS()
 {
-    free(x_);
-    free(y_);
-    free(z_);
-    free(u_);
-    free(v_);
-    free(w_);
-    free(flag_);
+    delete[] x_;
+    delete[] y_;
+    delete[] z_;
+    delete[] u_;
+    delete[] v_;
+    delete[] w_;
+    delete[] flag_;
+
     
     if(!Pstream::parRun())
     {
@@ -159,13 +160,13 @@ bool Foam::LCS::start()
         getOffset();
 
         // Allocate space for data used by lcs library
-        x_ = static_cast<lcsdata_t*>(malloc(n_[0]*n_[1]*n_[2]*sizeof(lcsdata_t)));
-        y_ = static_cast<lcsdata_t*>(malloc(n_[0]*n_[1]*n_[2]*sizeof(lcsdata_t)));
-        z_ = static_cast<lcsdata_t*>(malloc(n_[0]*n_[1]*n_[2]*sizeof(lcsdata_t)));
-        u_ = static_cast<lcsdata_t*>(malloc(n_[0]*n_[1]*n_[2]*sizeof(lcsdata_t)));
-        v_ = static_cast<lcsdata_t*>(malloc(n_[0]*n_[1]*n_[2]*sizeof(lcsdata_t)));
-        w_ = static_cast<lcsdata_t*>(malloc(n_[0]*n_[1]*n_[2]*sizeof(lcsdata_t)));
-        flag_ = static_cast<int*>(malloc(n_[0]*n_[1]*n_[2]*sizeof(int)));
+        x_ = new lcsdata_t[n_[0]*n_[1]*n_[2]];
+        y_ = new lcsdata_t[n_[0]*n_[1]*n_[2]];
+        z_ = new lcsdata_t[n_[0]*n_[1]*n_[2]];
+        u_ = new lcsdata_t[n_[0]*n_[1]*n_[2]];
+        v_ = new lcsdata_t[n_[0]*n_[1]*n_[2]];
+        w_ = new lcsdata_t[n_[0]*n_[1]*n_[2]];
+        flag_ = new int[n_[0]*n_[1]*n_[2]];
 
         // convert OpenFoam mesh cell centers to x,y,z arays 
         // and set boundary type flags for each cell center
