@@ -117,6 +117,13 @@ bool Foam::LCS::start()
     if (active_)
     {
         Info << "-----libcfd2lcs initialisation -----------------------------------" << endl;
+
+        // Making serial run possible 
+        if(!Pstream::parRun())
+        {
+            MPI_Init(NULL, NULL);
+        }
+
         // Mpi communicator
         MPI_Comm comm = MPI_COMM_WORLD;
 
