@@ -68,10 +68,10 @@ functions
         velocityName "U";
 
         // Simulation time after which the LCS computation should start - (default: simulation startTime)
-        lcsStartTime = 0.1;
+        lcsStartTime 0.1;
 
         // Simulation time after which the LCS computation should end - (default: simulation endTime)
-        lcsEndTime = 0.4;
+        lcsEndTime 0.4;
 
         // LCS integration time length
         lcsIntegrationTime 10;

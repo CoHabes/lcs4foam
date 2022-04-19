@@ -22,7 +22,7 @@ startTime       0;
 
 stopAt          endTime;
 
-endTime         1;
+endTime         1.1;
 
 deltaT          0.005;
 
@@ -57,9 +57,6 @@ functions
         // (if not a rectlinear LCS blockMesh has to be created under constant/LCS/polyMesh beforehand)  
         isStaticRectLinear true;
 
-        // Numer of cells in mesh in x, y and z direction (must correspond with used mesh)
-        n (60 60 1);
-
         // Velocity field name
         velocityName "U";
 
@@ -67,7 +64,10 @@ functions
         lcsStartTime 0;
 
         // End time of LCS diagnostic - (default: endTime of simulation)
-        lcsEndTime 1;
+        lcsEndTime 1.1;
+
+        // LCS integration time length
+        lcsIntegrationTime 1;
 
         // LCS output interval in s
         lcsWriteTimeIntervall 0.1;
@@ -82,7 +82,7 @@ functions
         // - 0 LCS diagnostic will be computed on same grid (is default)
         // - 1, 2, ... Diagnostic will be computed on a grid with resolution times more grid points
         // - -1, -2, ... Diagnostic will be computed on a grid with resolution times less grid points
-        resolution 0;
+        resolution 2;
 
         lcsCFL          0.5;
 

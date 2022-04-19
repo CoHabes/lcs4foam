@@ -5,6 +5,5 @@
 application="icoFoam"
 
 runApplication blockMesh
-#runApplication $application
 runApplication decomposePar
 mpirun -np 2 $application -parallel > log.$application

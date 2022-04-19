@@ -20,38 +20,38 @@ FoamFile
     top
     {
         type            wall;
-        nFaces          256;
-        startFace       65152;
+        nFaces          512;
+        startFace       261376;
     }
     left
     {
         type            wall;
-        nFaces          128;
-        startFace       65408;
+        nFaces          256;
+        startFace       261888;
     }
     right
     {
         type            wall;
-        nFaces          128;
-        startFace       65536;
+        nFaces          256;
+        startFace       262144;
     }
     bottom
     {
         type            wall;
-        nFaces          256;
-        startFace       65664;
+        nFaces          512;
+        startFace       262400;
     }
     front
     {
         type            empty;
-        nFaces          32768;
-        startFace       65920;
+        nFaces          131072;
+        startFace       262912;
     }
     back
     {
         type            empty;
-        nFaces          32768;
-        startFace       98688;
+        nFaces          131072;
+        startFace       393984;
     }
 )
 

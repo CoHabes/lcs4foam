@@ -4,6 +4,5 @@
 
 compileApplication doubleGyre
 runApplication blockMesh
-runApplication decomposePar
 
-mpirun -np 2 doubleGyre -parallel > log.doubleGyre
+runApplication doubleGyre
