@@ -203,6 +203,7 @@ class LCS
             } lcsOpts_;
 
     // Private Member Functions
+        void readGlobalN();
         void getBoundBoxes();
         void getCellCenterCoords();
         void getVelocityField();

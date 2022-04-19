@@ -64,9 +64,6 @@ functions
         // (MUST be true if isOverset is true)
         isStaticRectLinear true;
 
-        // Numer of cells in x, y and z direction (must correspond with mesh which is used for the lcs compuatations)
-        n (20 20 1);
-
         // Velocity field name - (default: "U")
         velocityName "U";
 

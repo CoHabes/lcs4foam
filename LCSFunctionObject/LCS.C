@@ -35,6 +35,9 @@ License
 #include "wedgePolyPatch.H"
 #include "cyclicPolyPatch.H"
 #include "processorPolyPatch.H"
+#include "polyMesh.H"
+#include "block.H"
+#include "curvedEdgeList.H"
 #include <memory>
 
 // * * * * * * * * * * * * * * Static Data Members * * * * * * * * * * * * * //
@@ -67,6 +70,7 @@ Foam::LCS::LCS
     active_(true),
     firstExe_(true),
     offset_(),
+    n_(),
     x_(nullptr), y_(nullptr), z_(nullptr), u_(nullptr), v_(nullptr), w_(nullptr),
     flag_(nullptr),
     id_fwd_(-1),
@@ -102,13 +106,52 @@ Foam::LCS::LCS
 
 Foam::LCS::~LCS()
 {
-    delete[] x_;
+    if(x_){
+        delete[] x_;
+        x_ = nullptr;
+    }
+    if(y_){
+        delete[] y_;
+        y_ = nullptr;
+    }
+    if(z_){
+        delete[] z_;
+        z_ = nullptr;
+    }
+    if(u_){
+        delete[] u_;
+        u_ = nullptr;
+    }
+    if(v_){
+        delete[] v_;
+        v_ = nullptr;
+    }
+    if(w_){
+        delete[] w_;
+        w_ = nullptr;
+    }
+    if(flag_){
+        delete[] flag_;
+        flag_ = nullptr;
+    }
+    
+
+    /*
     delete[] y_;
     delete[] z_;
     delete[] u_;
     delete[] v_;
     delete[] w_;
     delete[] flag_;
+
+    
+    y_ = nullptr;
+    z_ = nullptr;
+    u_ = nullptr;
+    v_ = nullptr;
+    w_ = nullptr;
+    flag_ = nullptr;
+    */
 
     
     if(!Pstream::parRun())
@@ -217,7 +260,8 @@ void Foam::LCS::read(const dictionary& dict)
             Info << "LCSFunctionObject: Using desiganted lcs mesh for lcs computations\n" << endl;
         }
 
-        globalN_ = dict.lookup("n");
+        readGlobalN();
+
         uName_ = dict.lookupOrDefault<word>("velocityName", "U");
         ftleFwd_ = dict.lookupOrDefault<Switch>("ftleFwd", true);
         ftleBkwd_ = dict.lookupOrDefault<Switch>("ftleBkwd", false);
@@ -368,6 +412,105 @@ void Foam::LCS::timeSet()
 
 void Foam::LCS::write()
 {
+}
+
+void Foam::LCS::readGlobalN()
+{
+    word regionName;
+    fileName polyMeshDir;
+
+    if (!isStaticRectLinear_)
+    {
+        // constant/<region>/polyMesh/blockMeshDict
+        regionName = "LCS";
+        polyMeshDir = regionName/polyMesh::meshSubDir;
+    }
+    else
+    {
+        // constant/polyMesh/blockMeshDict
+        regionName  = polyMesh::defaultRegion;
+        polyMeshDir = polyMesh::meshSubDir;
+    }
+
+    //- Read blockMeshDict of LCS mesh
+    IOdictionary meshDict
+    (
+        IOobject
+        (
+            "blockMeshDict",
+            cfdMesh_.time().constant(),
+            polyMeshDir,
+            cfdMesh_.time(),
+            IOobject::MUST_READ,
+            IOobject::NO_WRITE,
+            false
+        )
+    );
+
+    //- Point field defining the block mesh (corners)
+    //- needed for block constructor
+    pointField blockPointField(meshDict.lookup("vertices"));
+
+    //- Empty list of curved edges
+    //- Needed for block constructor
+    curvedEdgeList edges;
+
+    //- Blocks input stream
+    ITstream& is(meshDict.lookup("blocks"));
+
+    token firstToken(is);
+
+    if (firstToken.isLabel())
+    {
+        label nBlocks = firstToken.labelToken();
+    }
+    else
+    {
+        is.putBack(firstToken);
+    }
+
+    // Read beginning of blocks
+    is.readBegin("blocks");
+
+    token lastToken(is);
+    while
+    (
+       !(
+           lastToken.isPunctuation()
+        && lastToken.pToken() == token::END_LIST
+        )
+    )
+    {
+        is.putBack(lastToken);
+        block meshblock
+        (
+            blockPointField,
+            edges,
+            is
+        );
+
+        if (isOverset_ && meshblock.zoneName() != lcsOversetRegion_)
+        {
+            is >> lastToken;
+            continue;
+        }
+        else
+        {
+            Vector<label> globalNv = meshblock.meshDensity();
+
+            globalN_.clear();
+            globalN_.append(globalNv.x());
+            globalN_.append(globalNv.y());
+            globalN_.append(globalNv.z()); 
+        }
+        
+        
+        is >> lastToken;
+    }
+    is.putBack(lastToken);
+
+    // Read end of blocks
+    is.readEnd("blocks"); 
 }
 
 void Foam::LCS::getBoundBoxes()
