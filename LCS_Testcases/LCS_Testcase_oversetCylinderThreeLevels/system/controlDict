@@ -17,14 +17,13 @@ FoamFile
 
 application icoOversetFoam;
 
-// startFrom       startTime;
-startFrom       latestTime;
+startFrom       startTime;
 
 startTime       0;
 
 stopAt          endTime;
 
-endTime         100;
+endTime         150;
 
 deltaT          0.02;
 
@@ -61,43 +60,6 @@ libs
 
 functions
 (
-    /*
-    forces
-    {
-        type                forces;
-        functionObjectLibs  ( "libforces.so" );
-        outputControl       timeStep;
-        outputInterval      1;
-        patches             ( cylinder );
-        pName               p;
-        UName               U;
-        rhoName             rhoInf;
-        log                 true;
-        rhoInf              1;
-        CofR                (0 0 0);
-    }
-
-    probes
-    {
-        type            probes;
-        functionObjectLibs ("libsampling.so");
-        enabled         true;
-        outputControl   timeStep;
-        outputInterval  1;
-        probeLocations
-        (
-            ( 1 0 0 )
-            ( 3 0 0 )
-            ( 5 0 0 )
-            (15 0 0 )
-        );
-
-        fields
-        (
-            p
-        );
-    }*/
-
     lagrangianCoherentStructures
     {
         type            LCS;
@@ -116,20 +78,20 @@ functions
         // (MUST be true if isOverset is true)
         isStaticRectLinear true;
 
-        // Numer of cells in x, y and z direction (must correspond with mesh which is used for the lcs compuatations)
-        n (148 80 1);
-
         // Velocity field name
         velocityName "U";
 
         // Start time of LCS diagnostic - (default: startTime of simulation)
-        lcsStartTime 0;
+        lcsStartTime 30;
 
         // End time of LCS diagnostic - (default: endTime of simulation)
-        lcsEndTime 100;
+        lcsEndTime 150;
+
+        // LCS integration time length
+        lcsIntegrationTime 16;
 
         // LCS output interval in s
-        lcsWriteTimeIntervall 2;
+        lcsWriteTimeIntervall 1;
 
         // Switches for FTLE field evaluation 
         // - Forward time (repelling) FTLE field - (default: true/on)
@@ -154,7 +116,7 @@ functions
         {
             synctimer       off;
             debug           off;
-            writeFlowmap    on;
+            writeFlowmap    off;
             writeBCFlags    on;
             incompressible  on;
             auxGrid         off;

@@ -14,35 +14,7 @@ FoamFile
 }
 // * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * //
 
-application     icoFoam;
-
-startFrom       startTime;
-
-startTime       0;
-
-stopAt          endTime;
-
-endTime         0.5;
-
-deltaT          0.005;
-
-writeControl    timeStep;
-
-writeInterval   20;
-
-purgeWrite      0;
-
-writeFormat     ascii;
-
-writePrecision  6;
-
-writeCompression off;
-
-timeFormat      general;
-
-timePrecision   6;
-
-runTimeModifiable true;
+// solver control settings ...
 
 functions
 {
@@ -60,45 +32,58 @@ functions
 
         // Specifies if the main mesh is a static rectlinear Mesh 
         // (if yes the main cfd mesh is also used for the lcs computations)
-        // (if not a rectlinear LCS blockMesh has to be created under constant/LCS/polyMesh beforehand)
+        // (if not a rectlinear LCS blockMesh has to be created under 
+        //  constant/LCS/polyMesh beforehand)
         // (MUST be true if isOverset is true)
         isStaticRectLinear true;
 
-        // Velocity field name - (default: "U")
+        // Velocity field name 
+        //- (default: "U")
         velocityName "U";
 
-        // Simulation time after which the LCS computation should start - (default: simulation startTime)
-        lcsStartTime = 0.1;
+        // Simulation time after which the LCS computation should start 
+        //- (default: simulation startTime)
+        lcsStartTime 0.1;
 
-        // Simulation time after which the LCS computation should end - (default: simulation endTime)
-        lcsEndTime = 0.4;
+        // Simulation time after which the LCS computation should end 
+        //- (default: simulation endTime)
+        lcsEndTime 0.4;
 
         // LCS integration time length
         lcsIntegrationTime 10;
 
-        // LCS output and flow map sub-step interval in s - (default: simulation write time intervall)
+        // LCS output and flow map sub-step interval in s 
+        //- (default: simulation write time intervall)
         lcsSubStepWriteIntervall 1;
 
         // Switches for FTLE field evaluation 
-        // - Forward time (repelling) FTLE field - (default: true/on)
+        // - Forward time (repelling) FTLE field 
+        //- (default: true/on)
         ftleFwd    on;
-        // - Backward time (attracting) FTLE field - (default: false/off)
+        // - Backward time (attracting) FTLE field 
+        //- (default: false/off)
         ftleBkwd   off;
 
-        // Specifies addition or removal of grid points for the diagnostic calculation
+        // Specifies addition or removal of grid points for the LCS calculation
         // - 0 LCS diagnostic will be computed on same grid (is default)
-        // - 1, 2, ... Diagnostic will be computed on a grid with resolution times more grid points
-        // - -1, -2, ... Diagnostic will be computed on a grid with resolution times less grid points - - (default: 0)
+        // - 1, 2, ... Diagnostic will be computed on a grid with resolution 
+        //             times more grid points
+        // - -1, -2, ... Diagnostic will be computed on a grid with resolution 
+        //               times less grid points
+        //- (default: 0)
         resolution 0;
 
-        // Determines time step for flow-map integration - (default: 0.5)
+        // Determines time step for flow-map integration 
+        //- (default: 0.5)
         lcsCFL          0.5;
 
-        // Used flow-map time integration scheme - (default: rk2)
+        // Used flow-map time integration scheme 
+        //- (default: rk2)
         integrator      rk3;
 
         // Used interpolation scheme for velocity interpolation
-        // and flow map composition from sub-step flow maps - (default: linear)
+        // and flow map composition from sub-step flow maps 
+        //- (default: linear)
         interpolator    linear;
         
         // LCS Options

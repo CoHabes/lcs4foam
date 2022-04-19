@@ -20,38 +20,38 @@ FoamFile
     out
     {
         type            patch;
-        nFaces          320;
-        startFace       255280;
+        nFaces          160;
+        startFace       63640;
     }
     sym1
     {
         type            symmetryPlane;
-        nFaces          400;
-        startFace       255600;
+        nFaces          200;
+        startFace       63800;
     }
     sym2
     {
         type            symmetryPlane;
-        nFaces          400;
-        startFace       256000;
+        nFaces          200;
+        startFace       64000;
     }
     in
     {
         type            patch;
-        nFaces          320;
-        startFace       256400;
+        nFaces          160;
+        startFace       64200;
     }
     back
     {
         type            empty;
-        nFaces          128000;
-        startFace       256720;
+        nFaces          32000;
+        startFace       64360;
     }
     front
     {
         type            empty;
-        nFaces          128000;
-        startFace       384720;
+        nFaces          32000;
+        startFace       96360;
     }
 )
 

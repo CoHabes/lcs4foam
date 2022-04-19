@@ -31,9 +31,9 @@ Description
 
 #include "fvCFD.H"
 
-#define ABC_A Foam::sqrt(3.0)
-#define ABC_B Foam::sqrt(2.0)
-#define ABC_C 1.0
+#define ABC_A 0.5  //Foam::sqrt(3.0)
+#define ABC_B 0.8  //Foam::sqrt(2.0)
+#define ABC_C 0.8  //1.0
 #define ABC_D 0.0
 
 // * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * //

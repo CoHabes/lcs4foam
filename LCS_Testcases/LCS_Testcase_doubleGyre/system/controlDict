@@ -23,7 +23,7 @@ startTime       0;
 
 stopAt          endTime;
 
-endTime         24;
+endTime         16;
 
 deltaT          0.01;
 
@@ -58,20 +58,20 @@ functions
         // (if not a rectlinear LCS blockMesh has to be created under constant/LCS/polyMesh beforehand)  
         isStaticRectLinear true;
 
-        // Numer of cells in mesh in x, y and z direction (must correspond with used mesh)
-        n (256 128 1);
-
         // Velocity field name
         velocityName "U";
 
-        // Start time of LCS diagnostic - (default: startTime of simulation)
+        // Simulation time after which the LCS computation should start - (default: simulation startTime)
         lcsStartTime 0;
 
-        // End time of LCS diagnostic - (default: endTime of simulation)
-        lcsEndTime 24;
+        // Simulation time after which the LCS computation should end - (default: simulation endTime)
+        lcsEndTime 26;
 
-        // LCS output interval in s
-        lcsWriteTimeIntervall 1.5;
+        // LCS integration time length
+        lcsIntegrationTime 15;
+
+        // LCS output and flow map sub-step interval in s - (default: simulation write time intervall)
+        lcsSubStepWriteIntervall 1.5;
 
         // Switches for FTLE field evaluation 
         // - Forward time (repelling) FTLE field - (default: true/on)
@@ -97,8 +97,8 @@ functions
         {
             synctimer       off;
             debug           off;
-            writeFlowmap    on;
-            writeBCFlags    on;
+            writeFlowmap    off;
+            writeBCFlags    off;
             incompressible  on;
             auxGrid         off;
         }
