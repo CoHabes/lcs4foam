@@ -25,6 +25,7 @@ functions
         functionObjectLibs ("libLCSFunctionObject.so");
 
         // Specifies if an oversetMesh is used for the simulation
+        //- (default: false)
         isOverset false;
         // Name of cellZone in oversetMesh which is used for the lcs computation
         // (only needed if isOverset is true)
@@ -96,6 +97,7 @@ functions
             incompressible  off;
             auxGrid         off;
         }
+    }
 }
 
 

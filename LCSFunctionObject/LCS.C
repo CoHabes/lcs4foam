@@ -69,8 +69,8 @@ Foam::LCS::LCS
     localBb_(),
     active_(true),
     firstExe_(true),
-    offset_(),
     n_(),
+    offset_(),
     x_(nullptr), y_(nullptr), z_(nullptr), u_(nullptr), v_(nullptr), w_(nullptr),
     flag_(nullptr),
     id_fwd_(-1),
@@ -199,7 +199,7 @@ bool Foam::LCS::start()
         // Compute number of grid points for THIS partition in x=i, y=j and z=k direction
         getNumberOfCellsInDirection();
 
-        // Compute offset of local mesh in respect to the global mesh 
+        // Compute cell offset of local mesh in respect to the global mesh 
         getOffset();
 
         // Allocate space for data used by lcs library
@@ -218,11 +218,11 @@ bool Foam::LCS::start()
         // Initializes the communications and data storage for OpenFoam data input
         cfd2lcs_init_c(comm,n_.data(),offset_.data(),x_,y_,z_,flag_);
 
-        // Initialize LCS diagnostics
-        initializeLCSDiagnostics();
-
         // Set CFD2LCS options/parameters
         lcsOpts_.setLCSoptions();
+
+        // Initialize LCS diagnostics
+        initializeLCSDiagnostics();
 
         // start() has been called
         firstExe_ = false;
