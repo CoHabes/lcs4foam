@@ -51,6 +51,9 @@ Description
         labelData    | some label value...       | yes      |
     \endtable
 
+Author
+    Constantin Habes, TU Darmstadt.  All rights reserved.
+
 SourceFiles
     LCS.C
     IOLCS.H
