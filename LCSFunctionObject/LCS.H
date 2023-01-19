@@ -53,6 +53,7 @@ Description
 
 Author
     Constantin Habes, TU Darmstadt.  All rights reserved.
+    Mohammed Elwardi, TU Darmstadt.  All rights reserved.
 
 SourceFiles
     LCS.C
