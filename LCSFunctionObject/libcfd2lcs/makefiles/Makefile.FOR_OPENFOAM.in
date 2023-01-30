@@ -5,7 +5,7 @@
 #Compilers & Flags:
 F90 = mpif90  #MPI Fortran compiler
 CC = mpicc   #MPI C Compiler
-FFLAGS = -c -fPIC -O3 -ftree-vectorizer-verbose=0 #Fortan compiler flags
+FFLAGS = -c -fPIC -O3 -ftree-vectorizer-verbose=0 -fallow-argument-mismatch #Fortan compiler flags
 CFLAGS = -c -fPIC -O3 #C Compiler flage
 CLIBS = -lgfortran -lm # Some Compilers require extra flags to link C to Fortran, ie -lgfortran
 
@@ -32,7 +32,7 @@ endif
 
 #Link line and include path for all cfd2lcs dependencies.  Dont touch these.
 #Note that CFD2LCS_PREFIX here *should* get updated updated during default install
-CFD2LCS_PREFIX = /home/constantin/foam/constantin-4.1/LCS/LCSFunctionObject/libcfd2lcs
+CFD2LCS_PREFIX = /home/local/CSI/ch25xyte/foam/ch25xyte-4.1/lcsfunctionobject/LCSFunctionObject/libcfd2lcs
 CFD2LCS_SP_LIBS = -L$(CFD2LCS_PREFIX)/lib -lcfd2lcs_sp -lbspline_sp $(HDF5_LIBS) $(LAPACK_LIBS) $(MPI_LIBS)
 CFD2LCS_DP_LIBS = -L$(CFD2LCS_PREFIX)/lib -lcfd2lcs_dp -lbspline_dp $(HDF5_LIBS) $(LAPACK_LIBS) $(MPI_LIBS)
 CFD2LCS_INC = -$(INC)$(CFD2LCS_PREFIX)/include/
