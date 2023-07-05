@@ -1,0 +1,11 @@
+pipelines:
+  default:
+    - step:
+        name: Sync GitHub Mirror
+        image: alpine/git:latest
+        clone:
+          enabled: false
+        script:
+          - git clone --bare git@bitbucket.org:C_Habes/lcs4foam.git
+          - cd lcs4foam.git
+          - git push --mirror git@github.com:CoHabes/lcs4foam.git
