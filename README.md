@@ -7,7 +7,7 @@ Developed by the Computational Multiphase Flow research group.
 * [Request Feature](https://bitbucket.org/C_Habes/lcs4foam/issues?status=new&status=open)
 
 ## About The Project
-An OpenFOAM function object to compute finite-time Lyapunov exponent fields FTLE during CFD simulation.
+An OpenFOAM function object to compute finite-time Lyapunov exponent (FTLE) fields during CFD simulation.
 This enables the OpenFOAM community to assess the geometry of the material transport in any flow quantitatively on-the-fly using principally any OpenFOAM flow solver.
 
 ## In this repository
@@ -50,12 +50,12 @@ develop LCS4FOAM. For this, start by forking the repository to your own
 account. Then, clone the forked repository to your local machine and create a 
 new branch for your changes. Make the necessary modifications, commit your 
 changes, and push the branch to your forked repository. Finally, open a pull 
-request from your branch to the original repository, and providing a clear 
+request from your branch to the original repository and provide a clear 
 description of your changes. Collaborate with reviewers, address feedback, 
 and once approved, your contributions can be merged.
 
 The `master` branch is the corner stone of the development, please branch all of 
-your feature/bugFix branches off of it, And "rebase" your branches on it before 
+your feature/bugFix branches off of it, and "rebase" your branches on it before 
 issuing a pull request. When your branch gets merged, it's considered a 
 "best-practice" to delete your feature branch and start a fresh one.
 
