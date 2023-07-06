@@ -1,4 +1,7 @@
-#  LCS4Foam
+#  LCS4FOAM
+
+[![DOI](https://zenodo.org/badge/662623039.svg)](https://zenodo.org/badge/latestdoi/662623039)
+
 
 Developed by the Computational Multiphase Flow research group.
 
