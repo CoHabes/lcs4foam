@@ -95,3 +95,34 @@ doc/Doxygen/DTAGS
 
 # Ignore vscode setup
 /.vscode
+
+#Examples that we dont distribute
+LCSFunctionObject/libcfd2lcs/examples/mobile
+LCSFunctionObject/libcfd2lcs/examples/roms
+LCSFunctionObject/libcfd2lcs/examples/cgs_dem
+LCSFunctionObject/libcfd2lcs/examples/ttrack3D
+LCSFunctionObject/libcfd2lcs/examples/cfd2lcs_output
+LCSFunctionObject/libcfd2lcs/examples/cfd2lcs_tmp
+
+#Fortran files
+lib
+include
+*.a
+*.o
+*.mod
+
+#Linked header files
+LCSFunctionObject/libcfd2lcs/src/cfd2lcs_inc.f90
+LCSFunctionObject/libcfd2lcs/src/cfd2lcs_inc.h
+
+#Documentation
+*.pdf
+*.aux
+*.bbl
+*.blg
+*.log
+*.out
+
+#Example Executables
+ABC_FLOW*
+DOUBLE_GYRE*
